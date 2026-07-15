@@ -1,4 +1,4 @@
-import type { AuthResult, LoginRequest } from "../models/auth.ts";
+import type { AuthResult, LoginRequest } from "../models/Auth.ts";
 import type { ApiResponse } from "../models/ApiResponse.ts";
 import { authApiClient } from "./apiClient";
 
