@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Collapse, Divider, IconButton, Tooltip, Typography, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, } from "@mui/material";
+import { Avatar, Box, Button, Collapse, Divider, IconButton, Tooltip, Typography, } from "@mui/material";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomizeOutlined";
@@ -332,15 +332,15 @@ function Header() {
 }
 
 function Footer() {
-  const location = useLocation();
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
-  const handleCloseHelp = () => { setHelpOpen(false); };
+  //const location = useLocation();
+  //const [, setHelpOpen] = useState(false);
+  const [, setTermsOpen] = useState(false);
+  const [, setPrivacyOpen] = useState(false);
+  //const handleCloseHelp = () => { setHelpOpen(false); };
   const handleOpenTerms = () => { setTermsOpen(true); };
-  const handleCloseTerms = () => { setTermsOpen(false); };
+  //const handleCloseTerms = () => { setTermsOpen(false); };
   const handleOpenPrivacy = () => { setPrivacyOpen(true); };
-  const handleClosePrivacy = () => { setPrivacyOpen(false); };
+  //const handleClosePrivacy = () => { setPrivacyOpen(false); };
   //const [selectedHelpPath, setSelectedHelpPath] = useState<HelpPath>(() => getHelpPathFromCurrentRoute(location.pathname));
   //const selectedHelpContent = helpContentByPath[selectedHelpPath];
   //const handleOpenHelp = () => { setSelectedHelpPath(getHelpPathFromCurrentRoute(location.pathname)); setHelpOpen(true); };
