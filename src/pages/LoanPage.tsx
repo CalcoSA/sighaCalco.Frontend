@@ -1,0 +1,522 @@
+import { Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, } from "@mui/material";
+import type { ResponseModalSeverity, ResponseModalState, } from "../components/common/ModalType";
+import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
+import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import { loanStatusService } from "../services/loanStatusService";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import { ResponseModal } from "../components/ResponseModal";
+import { getErrorMessage } from "../services/errorService";
+import type { LoanStatus } from "../models/LoanStatus";
+import { loanService } from "../services/loanService";
+import { useEffect, useState } from "react";
+import type { Loan } from "../models/Loan";
+
+interface LoanFilters {
+  employeeDocumentNumber: string;
+  IdLoanStatus: number;
+  requestDateFrom: string;
+  requestDateTo: string;
+}
+
+const emptyFilters: LoanFilters = {
+  employeeDocumentNumber: "",
+  IdLoanStatus: 0,
+  requestDateFrom: "",
+  requestDateTo: "",
+};
+
+const emptyResponseModal: ResponseModalState = {
+  open: false,
+  severity: "info",
+  title: "",
+  message: "",
+};
+
+const formatMoney = (value: number) => {
+  return Number(value).toLocaleString("es-CO", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+export function LoanPage() {
+  const [responseModal, setResponseModal] = useState<ResponseModalState>(emptyResponseModal);
+  const [allLoanStatus, setAllLoanStatus] = useState<LoanStatus[]>([]);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [filters, setFilters] = useState<LoanFilters>(emptyFilters);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);  
+
+  const showResponseModal = (severity: ResponseModalSeverity, title: string, message: string) => {
+    setResponseModal({
+      open: true,
+      severity,
+      title,
+      message,
+    });
+  };
+
+  const closeResponseModal = () => {
+    setResponseModal((prev) => ({
+      ...prev,
+      open: false,
+    }));
+  };
+
+  const loadAllLoanStatus = async () => {
+    try {
+      setLoadingStatus(true);
+      const response = await loanStatusService.getAll();
+      setAllLoanStatus(response.result ?? []);
+    } catch (err) {
+      setAllLoanStatus([]);
+      showResponseModal("error", "Error al cargar estados", getErrorMessage(err));
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  const openDetailModal = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setDetailModalOpen(true);
+  };
+
+  const closeDetailModal = () => {
+    setDetailModalOpen(false);
+    setSelectedLoan(null);
+  };
+
+  const loadLoans = async (currentPage = page, currentPageSize = pageSize, currentFilters = filters) => {
+    try {
+      setLoading(true);
+
+      const response = await loanService.getAll({
+        page: currentPage,
+        pageSize: currentPageSize,
+        employeeDocumentNumber: currentFilters.employeeDocumentNumber.trim(),
+        IdLoanStatus: currentFilters.IdLoanStatus,
+        requestDateFrom: currentFilters.requestDateFrom,
+        requestDateTo: currentFilters.requestDateTo,
+      });
+
+      setLoans(response.result?.items ?? []);
+      setTotal(response.result?.total ?? 0);
+    } catch (err) {
+      setLoans([]);
+      setTotal(0);
+      showResponseModal("error", "Error al cargar préstamos", getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    setPage(1);
+    loadLoans(1, pageSize, filters);
+  };
+
+  const handleClean = () => {
+    setFilters(emptyFilters);
+    setPage(1);
+    loadLoans(1, pageSize, emptyFilters);
+  };
+
+  useEffect(() => {
+    loadAllLoanStatus();
+    loadLoans(1, pageSize, emptyFilters);
+  }, []);
+
+  return (
+    <Stack spacing={3}>
+      <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", }}>
+        <PriceCheckOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, }} />
+        <Typography sx={{ color: "#4B2E1F", fontSize: 26, fontWeight: 700, }}>
+          Préstamos
+        </Typography>
+      </Stack>
+      <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 3, }}>
+        <Stack spacing={2.5}>
+          <Typography sx={{ color: "#4B2E1F", fontSize: 18, fontWeight: 700, }}>
+            Filtros de búsqueda
+          </Typography>
+          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))", }, gap: 1.5, alignItems: "center", }}>
+            <TextField
+              label="Documento colaborador"
+              value={filters.employeeDocumentNumber}
+              fullWidth
+              size="small"
+              disabled={loading}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  employeeDocumentNumber: event.target.value,
+                }))
+              }
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonSearchOutlinedIcon sx={{ color: "#8B6A55" }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <TextField
+              select
+              label="Estado"
+              value={filters.IdLoanStatus}
+              fullWidth
+              size="small"
+              disabled={loading || loadingStatus}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  IdLoanStatus: Number(event.target.value),
+                }))
+              }
+            >
+              <MenuItem value={0}>Todos</MenuItem>
+
+              {allLoanStatus.map((item) => (
+                <MenuItem key={item.IdLoanStatus} value={item.IdLoanStatus}>
+                  {item.nameLoanStatus}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Fecha solicitud desde"
+              type="date"
+              value={filters.requestDateFrom}
+              fullWidth
+              size="small"
+              disabled={loading}
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  requestDateFrom: event.target.value,
+                }))
+              }
+            />
+            <TextField
+              label="Fecha solicitud hasta"
+              type="date"
+              value={filters.requestDateTo}
+              fullWidth
+              size="small"
+              disabled={loading}
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  requestDateTo: event.target.value,
+                }))
+              }
+            />
+            <Stack sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "flex-end", gridColumn: { xs: "1 / -1", sm: "1 / -1", md: "1 / -1", },}}>
+              <Button
+                variant="outlined"
+                startIcon={
+                  loading ? <CircularProgress size={16} /> : <SearchOutlinedIcon />
+                }
+                onClick={handleSearch}
+                disabled={loading}
+                sx={{
+                  height: 40,
+                  borderColor: "#8B6A55",
+                  color: "#4B2E1F",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": {
+                    borderColor: "#4B2E1F",
+                    bgcolor: "rgba(75, 46, 31, 0.05)",
+                  },
+                }}
+              >
+                Buscar
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CleaningServicesOutlinedIcon />}
+                onClick={handleClean}
+                disabled={loading}
+                sx={{
+                  height: 40,
+                  borderColor: "#8B6A55",
+                  color: "#4B2E1F",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": {
+                    borderColor: "#4B2E1F",
+                    bgcolor: "rgba(75, 46, 31, 0.05)",
+                  },
+                }}
+              >
+                Limpiar
+              </Button>
+            </Stack>
+          </Stack>
+        </Stack>
+      </Paper>
+      <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, overflow: "hidden", }}>
+        {loading ? (
+          <Box sx={{ py: 6, display: "flex", justifyContent: "center", }}>
+            <CircularProgress sx={{ color: "#4B2E1F" }} />
+          </Box>
+        ) : (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Documento
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Colaborador
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Concepto
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Plan de descuento
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Estado
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Fecha solicitud
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Valor préstamo
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                    Cuotas
+                  </TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loans.map((item) => (
+                  <TableRow key={item.IdLoan} hover>
+                    <TableCell>{item.employeeDocumentNumber}</TableCell>
+                    <TableCell>{item.employeeFullName}</TableCell>
+                    <TableCell>{item.conceptName}</TableCell>
+                    <TableCell>{item.deductionPlanName}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={item.loanStatusName}
+                        size="small"
+                        sx={{
+                          bgcolor:
+                            item.loanStatusName === "Activo"
+                              ? "#E8F5E9"
+                              : item.loanStatusName === "Inactivo"
+                              ? "#FFEBEE"
+                              : item.loanStatusName === "Suspendido"
+                              ? "#FFF4E5"
+                              : item.loanStatusName === "Terminado"
+                              ? "#E3F2FD"
+                              : "#F5F5F5",
+
+                          color:
+                            item.loanStatusName === "Activo"
+                              ? "#2E7D32"
+                              : item.loanStatusName === "Inactivo"
+                              ? "#C62828"
+                              : item.loanStatusName === "Suspendido"
+                              ? "#ED6C02"
+                              : item.loanStatusName === "Terminado"
+                              ? "#1565C0"
+                              : "#616161",
+
+                          fontWeight: 600,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>{item.requestDate}</TableCell>
+                    <TableCell align="right">
+                      {formatMoney(item.loanAmount)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {item.paidInstallments}/{item.numberInstallments}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "center", alignItems: "center", }}>
+                        <Tooltip title="Detalles préstamo" arrow>
+                          <IconButton size="small" onClick={() => openDetailModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                            <VisibilityOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Actualizar" arrow>
+                          <IconButton size="small" onClick={() => {}} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {loans.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                      No hay préstamos para mostrar.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={total}
+              page={page - 1}
+              rowsPerPage={pageSize}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Filas por página"
+              onPageChange={(_, newPage) => {
+                const nextPage = newPage + 1;
+                setPage(nextPage);
+                loadLoans(nextPage, pageSize, filters);
+              }}
+              onRowsPerPageChange={(event) => {
+                const nextPageSize = Number(event.target.value);
+                setPageSize(nextPageSize);
+                setPage(1);
+                loadLoans(1, nextPageSize, filters);
+              }}
+            />
+          </>
+        )}
+      </Paper>
+
+      <Dialog open={detailModalOpen} onClose={closeDetailModal} fullWidth maxWidth="md">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#4B2E1F", fontWeight: 700, }}>
+          <VisibilityOutlinedIcon />
+          Detalles préstamo
+        </DialogTitle>
+        <DialogContent>
+          {selectedLoan && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2, }}>
+                <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, mb: 2, }}>
+                  Datos del colaborador
+                </Typography>
+                <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", }, gap: 1.5, }}>
+                  <TextField label="Documento" value={selectedLoan.employeeDocumentNumber} size="small" fullWidth disabled />
+                  <TextField label="Nombre" value={selectedLoan.employeeFullName} size="small" fullWidth disabled />
+                  <TextField label="Cargo" value={selectedLoan.employeeRoleName ?? ""} size="small" fullWidth disabled />
+                  <TextField label="Centro de costo" value={selectedLoan.employeeCostCenterName ?? ""} size="small" fullWidth disabled />
+                </Stack>
+              </Paper>
+              <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2, }}>
+                <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, mb: 2, }}>
+                  Datos del préstamo
+                </Typography>
+                <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", }, gap: 1.5, }}>
+                  <TextField label="Concepto" value={selectedLoan.conceptName} size="small" fullWidth disabled />
+                  <TextField label="Plan de descuento" value={selectedLoan.deductionPlanName} size="small" fullWidth disabled />
+                  <TextField label="Estado" value={selectedLoan.loanStatusName} size="small" fullWidth disabled />
+                  <TextField label="Documento de cruce" value={selectedLoan.crossDocument ?? ""} size="small" fullWidth disabled />
+                  <TextField label="Valor préstamo" value={selectedLoan.loanAmount} size="small" fullWidth disabled />
+                  <TextField label="Número de cuotas" value={selectedLoan.numberInstallments} size="small" fullWidth disabled />
+                  <TextField label="Cuotas pagadas" value={selectedLoan.paidInstallments} size="small" fullWidth disabled />
+                  <TextField label="Saldo restante" value={selectedLoan.remainingAmount} size="small" fullWidth disabled />
+                  <TextField label="Fecha solicitud" value={selectedLoan.requestDate} size="small" fullWidth disabled />
+                  <TextField label="Inicio descuento" value={selectedLoan.startDiscountDate} size="small" fullWidth disabled />
+                  <TextField label="Fin descuento" value={selectedLoan.endDiscountDate ?? ""} size="small" fullWidth disabled />
+                  <TextField label="Creado por" value={selectedLoan.createdByUserName} size="small" fullWidth disabled />
+                  <TextField label="Modificado por" value={selectedLoan.updatedByUserName ?? ""} size="small" fullWidth disabled />
+                  <TextField label="Fecha creación" value={selectedLoan.createdAt} size="small" fullWidth disabled />
+                  <TextField label="Fecha modificación" value={selectedLoan.updatedAt ?? ""} size="small" fullWidth disabled />
+                </Stack>
+                <TextField label="Observación" value={selectedLoan.observation ?? ""} size="small" fullWidth multiline minRows={2} disabled sx={{ mt: 1.5 }} />
+              </Paper>
+              <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2 }}>
+                <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, mb: 2, }}>
+                  Cuotas
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                        Nro. cuota
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                        Valor cuota
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                        Fecha compromiso
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                        Estado
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                        Fecha pago
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedLoan.loanInstallments?.map((item) => (
+                      <TableRow key={item.IdLoanInstallment}>
+                        <TableCell>{item.installmentNumber}</TableCell>
+                        <TableCell align="center">
+                          {formatMoney(item.installmentValue)}
+                        </TableCell>
+                        <TableCell align="center">{item.commitmentDate ?? ""}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={Boolean(item.isPaid) ? "Pagada" : "Pendiente"}
+                            size="small"
+                            sx={{
+                              bgcolor: Boolean(item.isPaid) ? "#E8F5E9" : "#FFF4E5",
+                              color: Boolean(item.isPaid) ? "#2E7D32" : "#ED6C02",
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          {item.paymentDate ?? ""}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!selectedLoan.loanInstallments || selectedLoan.loanInstallments.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                          No hay cuotas registradas para este préstamo.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" startIcon={<CloseOutlinedIcon />} onClick={closeDetailModal} sx={{ borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ResponseModal open={responseModal.open} severity={responseModal.severity} title={responseModal.title} message={responseModal.message} onClose={closeResponseModal} />
+    </Stack>
+  );
+}
