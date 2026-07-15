@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, } from "react";
 import type { IntranetAccess } from "../models/IntranetAcces";
-import type { AuthUser, LoginRequest } from "../models/auth";
+import type { AuthUser, LoginRequest } from "../models/Auth";
 import { authService } from "../services/authService";
 
 interface AuthContextValue {
