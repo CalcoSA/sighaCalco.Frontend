@@ -1,0 +1,15 @@
+name: sighacalco-frontend-prod
+
+services:
+  frontend:
+    container_name: sighacalco_frontend_prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_AUTH_API_URL: ${VITE_AUTH_API_URL}
+        VITE_LOANS_API_URL: ${VITE_LOANS_API_URL}
+        VITE_INTEGRATION_API_URL: ${VITE_INTEGRATION_API_URL}
+    ports:
+      - "127.0.0.1:8302:80"
+    restart: unless-stopped
