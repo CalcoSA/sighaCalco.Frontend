@@ -17,6 +17,7 @@ import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import LanguageIcon from "@mui/icons-material/Language";
 import FacebookIcon from "@mui/icons-material/Facebook";
+import { HelpDialog } from "../components/common/Help";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CoffeeIcon from "@mui/icons-material/Coffee";
 import type { MenuItem } from "../models/MenuItem";
@@ -332,18 +333,31 @@ function Header() {
 }
 
 function Footer() {
-  //const location = useLocation();
-  //const [, setHelpOpen] = useState(false);
+  const location = useLocation();
+  const [helpOpen, setHelpOpen] = useState(false);
   const [, setTermsOpen] = useState(false);
   const [, setPrivacyOpen] = useState(false);
-  //const handleCloseHelp = () => { setHelpOpen(false); };
-  const handleOpenTerms = () => { setTermsOpen(true); };
-  //const handleCloseTerms = () => { setTermsOpen(false); };
-  const handleOpenPrivacy = () => { setPrivacyOpen(true); };
-  //const handleClosePrivacy = () => { setPrivacyOpen(false); };
-  //const [selectedHelpPath, setSelectedHelpPath] = useState<HelpPath>(() => getHelpPathFromCurrentRoute(location.pathname));
-  //const selectedHelpContent = helpContentByPath[selectedHelpPath];
-  //const handleOpenHelp = () => { setSelectedHelpPath(getHelpPathFromCurrentRoute(location.pathname)); setHelpOpen(true); };
+  const isSinergyPage = location.pathname.startsWith("/integracion/sinergy");
+
+  const handleOpenTerms = () => {
+    setTermsOpen(true);
+  };
+
+  const handleOpenPrivacy = () => {
+    setPrivacyOpen(true);
+  };
+
+  const handleOpenHelp = () => {
+    if (!isSinergyPage) {
+      return;
+    }
+
+    setHelpOpen(true);
+  };
+
+  const handleCloseHelp = () => {
+    setHelpOpen(false);
+  };
     
   return(
     <>
@@ -371,12 +385,13 @@ function Footer() {
               Privacidad
             </Typography>
             <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(247,232,216,0.35)" }}/>
-            <Typography sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: "pointer", }}>
+            <Typography onClick={handleOpenHelp} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: isSinergyPage ? "pointer" : "not-allowed", opacity: isSinergyPage ? 1 : 0.45, }}>
               Ayuda
             </Typography>
           </Box>
-          </Box>
         </Box>
+      </Box>
+      <HelpDialog open={helpOpen} onClose={handleCloseHelp} />
     </>
   );
 }
