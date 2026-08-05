@@ -57,3 +57,9 @@ export interface LoanCreate {
   createdByUserName: string;
   loanInstallments: LoanInstallmentCreate[];
 }
+
+export interface LoanUpdate {
+  IdLoanStatus: number;
+  observation: string;
+  updatedByUserName: string;
+}

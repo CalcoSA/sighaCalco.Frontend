@@ -1,17 +1,23 @@
 import { Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, } from "@mui/material";
 import type { ResponseModalSeverity, ResponseModalState, } from "../components/common/ModalType";
+import PlayCircleOutlineOutlinedIcon from "@mui/icons-material/PlayCircleOutlineOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
 import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
+import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
+import { loanStatusHistoryService } from "../services/loanStatusHistoryService";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
+import type { LoanStatusHistory } from "../models/LoanStatusHistory";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import { loanStatusService } from "../services/loanStatusService";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import { ResponseModal } from "../components/ResponseModal";
 import { getErrorMessage } from "../services/errorService";
 import type { LoanStatus } from "../models/LoanStatus";
 import { loanService } from "../services/loanService";
+import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import type { Loan } from "../models/Loan";
 
@@ -45,16 +51,25 @@ const formatMoney = (value: number) => {
 
 export function LoanPage() {
   const [responseModal, setResponseModal] = useState<ResponseModalState>(emptyResponseModal);
+  const [loanStatusHistories, setLoanStatusHistories] = useState<LoanStatusHistory[]>([]);
+  const [processingScheduled, setProcessingScheduled] = useState(false);
   const [allLoanStatus, setAllLoanStatus] = useState<LoanStatus[]>([]);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loanToUpdate, setLoanToUpdate] = useState<Loan | null>(null);
   const [filters, setFilters] = useState<LoanFilters>(emptyFilters);
+  const [loadingHistories, setLoadingHistories] = useState(false);
+  const [statusObservation, setStatusObservation] = useState("");
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedStatusId, setSelectedStatusId] = useState(0);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);  
+  const [page, setPage] = useState(1);
+  const { user } = useAuth();  
 
   const showResponseModal = (severity: ResponseModalSeverity, title: string, message: string) => {
     setResponseModal({
@@ -88,11 +103,33 @@ export function LoanPage() {
   const openDetailModal = (loan: Loan) => {
     setSelectedLoan(loan);
     setDetailModalOpen(true);
+    setLoanStatusHistories([]);
+
+    void loadLoanStatusHistories(loan.IdLoan);
   };
 
   const closeDetailModal = () => {
     setDetailModalOpen(false);
     setSelectedLoan(null);
+    setLoanStatusHistories([]);
+  };
+
+  const openStatusModal = (loan: Loan) => {
+    setLoanToUpdate(loan);
+    setSelectedStatusId(0);
+    setStatusObservation("");
+    setStatusModalOpen(true);
+  };
+
+  const closeStatusModal = () => {
+    if (updatingStatus) {
+      return;
+    }
+
+    setStatusModalOpen(false);
+    setLoanToUpdate(null);
+    setSelectedStatusId(0);
+    setStatusObservation("");
   };
 
   const loadLoans = async (currentPage = page, currentPageSize = pageSize, currentFilters = filters) => {
@@ -130,6 +167,98 @@ export function LoanPage() {
     loadLoans(1, pageSize, emptyFilters);
   };
 
+  const loadLoanStatusHistories = async (IdLoan: number) => {
+    try {
+      setLoadingHistories(true);
+      const response = await loanStatusHistoryService.getByLoanId(IdLoan);
+      setLoanStatusHistories(response.result ?? []);
+    } catch (err) {
+      setLoanStatusHistories([]);
+      showResponseModal("error", "Error al cargar históricos", getErrorMessage(err));
+    } finally {
+      setLoadingHistories(false);
+    }
+  };
+
+  const handleUpdateLoanStatus = async () => {
+    if (!loanToUpdate) {
+      return;
+    }
+
+    if (selectedStatusId <= 0) {
+      showResponseModal("warning", "Estado requerido", "Debe seleccionar el nuevo estado del préstamo.");
+      return;
+    }
+
+    const observation = statusObservation.trim();
+
+    if (!observation) {
+      showResponseModal("warning", "Observación requerida", "Debe ingresar una observación para actualizar el estado.");
+      return;
+    }
+
+    try {
+      setUpdatingStatus(true);
+
+      const response = await loanService.updateStatus(
+          loanToUpdate.IdLoan,
+          {
+            IdLoanStatus: selectedStatusId,
+            observation,
+            updatedByUserName: user?.userLogin ?? "",
+          }
+        );
+
+      if (!response.isSuccess || !response.result) {
+        throw new Error(response.Message || "No fue posible actualizar el estado.");
+      }
+
+      setStatusModalOpen(false);
+      setLoanToUpdate(null);
+      setSelectedStatusId(0);
+      setStatusObservation("");
+      showResponseModal("success", "Estado actualizado", response.Message || "Estado del préstamo actualizado correctamente.");
+
+      await loadLoans(page, pageSize, filters);
+    } catch (err) {
+      showResponseModal("error", "Error al actualizar estado", getErrorMessage(err));
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleProcessScheduled = async () => {
+    try {
+      setProcessingScheduled(true);
+
+      const response = await loanService.processScheduled();
+      const result = response.result;
+
+      if (!result) {
+        showResponseModal("warning", "Proceso finalizado", response.Message || "El proceso terminó sin información de resultado.");
+        return;
+      }
+
+      const message = [
+        `Quincena identificada: ${result.cycleName}.`,
+        `Fecha de descuento: ${result.targetInstallmentDate}.`,
+        `Préstamos revisados: ${result.reviewedLoans}.`,
+        `Préstamos activados: ${result.activatedLoans}.`,
+        `Cuotas pagadas: ${result.paidInstallments}.`,
+        `Préstamos terminados: ${result.finishedLoans}.`,
+        `Préstamos omitidos: ${result.skippedLoans}.`,
+        `Errores: ${result.failedLoans}.`,
+      ].join("\n");
+
+      showResponseModal(result.failedLoans > 0 ? "warning" : "success", "Proceso de descuentos ejecutado", message);
+      await loadLoans(page, pageSize, filters);
+    } catch (err) {
+      showResponseModal("error", "Error al ejecutar descuentos", getErrorMessage(err));
+    } finally {
+      setProcessingScheduled(false);
+    }
+  };
+
   useEffect(() => {
     loadAllLoanStatus();
     loadLoans(1, pageSize, emptyFilters);
@@ -137,11 +266,38 @@ export function LoanPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", }}>
-        <PriceCheckOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, }} />
-        <Typography sx={{ color: "#4B2E1F", fontSize: 26, fontWeight: 700, }}>
-          Préstamos
-        </Typography>
+      <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", justifyContent: "space-between", }}>
+        <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", }}>
+          <PriceCheckOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, }} />
+          <Typography sx={{ color: "#4B2E1F", fontSize: 26, fontWeight: 700, }}>
+            Préstamos
+          </Typography>
+        </Stack>
+        <Button
+          variant="outlined"
+          startIcon={
+            processingScheduled ? (
+              <CircularProgress size={16} />
+            ) : (
+              <PlayCircleOutlineOutlinedIcon />
+            )
+          }
+          onClick={handleProcessScheduled}
+          disabled={processingScheduled || loading}
+          sx={{
+            height: 40,
+            borderColor: "#8B6A55",
+            color: "#4B2E1F",
+            textTransform: "none",
+            fontWeight: 600,
+            "&:hover": {
+              borderColor: "#4B2E1F",
+              bgcolor: "rgba(75, 46, 31, 0.05)",
+            },
+          }}
+        >
+          { processingScheduled ? "Ejecutando..." : "Ejecutar descuentos" }
+        </Button>
       </Stack>
       <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 3, }}>
         <Stack spacing={2.5}>
@@ -334,6 +490,8 @@ export function LoanPage() {
                               ? "#FFF4E5"
                               : item.loanStatusName === "Terminado"
                               ? "#E3F2FD"
+                              : item.loanStatusName === "Cancelado"
+                              ? "#FCE4EC"
                               : "#F5F5F5",
 
                           color:
@@ -345,6 +503,8 @@ export function LoanPage() {
                               ? "#ED6C02"
                               : item.loanStatusName === "Terminado"
                               ? "#1565C0"
+                              : item.loanStatusName === "Cancelado"
+                              ? "#AD1457"
                               : "#616161",
 
                           fontWeight: 600,
@@ -365,9 +525,9 @@ export function LoanPage() {
                             <VisibilityOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Actualizar" arrow>
-                          <IconButton size="small" onClick={() => {}} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
-                            <EditOutlinedIcon fontSize="small" />
+                        <Tooltip title="Actualizar estado" arrow>
+                          <IconButton size="small" onClick={() => openStatusModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                            <ChangeCircleOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Stack>
@@ -448,6 +608,92 @@ export function LoanPage() {
                 </Stack>
                 <TextField label="Observación" value={selectedLoan.observation ?? ""} size="small" fullWidth multiline minRows={2} disabled sx={{ mt: 1.5 }} />
               </Paper>
+              <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2, }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, }}>
+                  <HistoryOutlinedIcon sx={{ color: "#4B2E1F" }} />
+                  <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, }}>
+                    Histórico
+                  </Typography>
+                </Stack>
+                {loadingHistories ? (
+                  <Box sx={{ py: 4, display: "flex", justifyContent: "center", }}>
+                    <CircularProgress size={28} sx={{ color: "#4B2E1F" }} />
+                  </Box>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F", }}>
+                          Estado
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: "#4B2E1F", }}>
+                          Observación
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F", }}>
+                          Fecha
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: "#4B2E1F", }}>
+                          Usuario
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {loanStatusHistories.map(
+                        (history) => (
+                          <TableRow key={ history.IdLoanStatusHistory }>
+                            <TableCell align="center">
+                              <Chip
+                                label={history.loanStatus.nameLoanStatus}
+                                size="small"
+                                sx={{
+                                  bgcolor:
+                                    history.loanStatus.nameLoanStatus === "Activo"
+                                      ? "#E8F5E9"
+                                      : history.loanStatus.nameLoanStatus === "Inactivo"
+                                      ? "#FFEBEE"
+                                      : history.loanStatus.nameLoanStatus === "Suspendido"
+                                      ? "#FFF4E5"
+                                      : history.loanStatus.nameLoanStatus === "Terminado"
+                                      ? "#E3F2FD"
+                                      : history.loanStatus.nameLoanStatus === "Cancelado"
+                                      ? "#FCE4EC"
+                                      : "#F5F5F5",
+
+                                  color:
+                                    history.loanStatus.nameLoanStatus === "Activo"
+                                      ? "#2E7D32"
+                                      : history.loanStatus.nameLoanStatus === "Inactivo"
+                                      ? "#C62828"
+                                      : history.loanStatus.nameLoanStatus === "Suspendido"
+                                      ? "#ED6C02"
+                                      : history.loanStatus.nameLoanStatus === "Terminado"
+                                      ? "#1565C0"
+                                      : history.loanStatus.nameLoanStatus === "Cancelado"
+                                      ? "#AD1457"
+                                      : "#616161",
+
+                                  fontWeight: 600,
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>{history.observation}</TableCell>
+                            <TableCell align="center">{history.createdAt}</TableCell>
+                            <TableCell align="center">{ history.createdByUserName }</TableCell>
+                          </TableRow>
+                        )
+                      )}
+
+                      {loanStatusHistories.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                            No existen históricos para este préstamo.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </Paper>
               <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2 }}>
                 <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, mb: 2, }}>
                   Cuotas
@@ -512,6 +758,113 @@ export function LoanPage() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button variant="outlined" startIcon={<CloseOutlinedIcon />} onClick={closeDetailModal} sx={{ borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={statusModalOpen} onClose={closeStatusModal} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#4B2E1F", fontWeight: 700, }}>
+          <ChangeCircleOutlinedIcon />
+          Actualizar estado
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Nuevo estado"
+              value={selectedStatusId}
+              fullWidth
+              size="small"
+              disabled={ updatingStatus || loadingStatus }
+              onChange={(event) =>
+                setSelectedStatusId(
+                  Number(event.target.value)
+                )
+              }
+            >
+              <MenuItem value={0} disabled>
+                Seleccione un estado
+              </MenuItem>
+              {allLoanStatus.map((item) => (
+                <MenuItem key={item.IdLoanStatus} value={item.IdLoanStatus}>
+                  {item.nameLoanStatus}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Observación"
+              value={statusObservation}
+              fullWidth
+              multiline
+              minRows={4}
+              disabled={updatingStatus}
+              slotProps={{
+                htmlInput: {
+                  maxLength: 2000,
+                },
+              }}
+              onChange={(event) =>
+                setStatusObservation(event.target.value)
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, }}>
+          <Button
+            variant="outlined"
+            startIcon={
+              <CloseOutlinedIcon />
+            }
+            onClick={closeStatusModal}
+            disabled={updatingStatus}
+            sx={{
+              height: 40,
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+
+              "&:hover": {
+                borderColor: "#4B2E1F",
+                bgcolor:
+                  "rgba(75, 46, 31, 0.05)",
+              },
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={
+              updatingStatus ? (
+                <CircularProgress
+                  size={16}
+                />
+              ) : (
+                <SaveOutlinedIcon />
+              )
+            }
+            onClick={
+              handleUpdateLoanStatus
+            }
+            disabled={updatingStatus}
+            sx={{
+              height: 40,
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+
+              "&:hover": {
+                borderColor: "#4B2E1F",
+                bgcolor:
+                  "rgba(75, 46, 31, 0.05)",
+              },
+            }}
+          >
+            {updatingStatus
+              ? "Actualizando..."
+              : "Actualizar estado"}
           </Button>
         </DialogActions>
       </Dialog>
