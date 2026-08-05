@@ -15,6 +15,7 @@ import { ResponseModal } from "../components/ResponseModal";
 import { getErrorMessage } from "../services/errorService";
 import type { LoanStatus } from "../models/LoanStatus";
 import { loanService } from "../services/loanService";
+import { NumericFormat } from "react-number-format";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -637,7 +638,34 @@ export function CreateLoanPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField label="Valor préstamo" type="number" value={loanForm.loanAmount} required fullWidth size="small" disabled={savingLoan} slotProps={{ htmlInput: { step: "0.01", min: "0", },}} onChange={(event) => setLoanForm((prev) => ({ ...prev, loanAmount: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
+            <NumericFormat
+              customInput={TextField}
+              label="Valor préstamo"
+              value={loanForm.loanAmount}
+              required
+              fullWidth
+              size="small"
+              disabled={savingLoan}
+              thousandSeparator="."
+              decimalSeparator=","
+              decimalScale={2}
+              allowNegative={false}
+              valueIsNumericString
+              onValueChange={(values) => {
+                setLoanForm((prev) => ({
+                  ...prev,
+                  loanAmount: values.value,
+                }));
+              }}
+              sx={{
+                "& .MuiInputBase-input": {
+                  fontSize: 13,
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: 13,
+                },
+              }}
+            />
             <TextField
               label="Número de cuotas"
               type="number"
@@ -707,35 +735,37 @@ export function CreateLoanPage() {
                     "& .MuiInputLabel-root": { fontSize: 13 },
                   }}
                 />
-                <TextField
+                <NumericFormat
+                  customInput={TextField}
                   label={`Valor cuota ${item.installmentNumber}`}
-                  type="number"
                   value={item.installmentValue}
                   fullWidth
                   size="small"
-                  slotProps={{
-                    htmlInput: {
-                      step: "0.01",
-                      min: "0",
-                    },
-                  }}
-                  onChange={(event) => {
-                    const value = event.target.value;
-
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  decimalScale={2}
+                  allowNegative={false}
+                  valueIsNumericString
+                  onValueChange={(values) => {
                     setInstallmentDrafts((prev) =>
                       prev.map((installment) =>
-                        installment.installmentNumber === item.installmentNumber
+                        installment.installmentNumber ===
+                        item.installmentNumber
                           ? {
                               ...installment,
-                              installmentValue: value,
+                              installmentValue: values.value,
                             }
                           : installment
                       )
                     );
                   }}
                   sx={{
-                    "& .MuiInputBase-input": { fontSize: 13 },
-                    "& .MuiInputLabel-root": { fontSize: 13 },
+                    "& .MuiInputBase-input": {
+                      fontSize: 13,
+                    },
+                    "& .MuiInputLabel-root": {
+                      fontSize: 13,
+                    },
                   }}
                 />
                 {index === 0 && (
