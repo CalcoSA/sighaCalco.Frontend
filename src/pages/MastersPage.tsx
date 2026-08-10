@@ -78,10 +78,19 @@ const masterItems: MenuItem[] = [
   },
 ];
 
+const visibleMasterPaths = [
+  "/maestros/conceptos-nomina",
+];
+
 export function MastersPage() {
   const { hasPermission } = useAuth();
   const location = useLocation();
-  const allowedMasterItems = masterItems.filter((item) => hasPermission(item.path));
+  //const allowedMasterItems = masterItems.filter((item) => hasPermission(item.path));
+  const allowedMasterItems = masterItems.filter(
+    (item) =>
+      visibleMasterPaths.includes(item.path) &&
+      hasPermission(item.path)
+  );
 
   return (
     <Box sx={{ height: "100%", minHeight: 0, display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", gap: 3, ml: "-40px", mt: -3, mb: -3, }}>
