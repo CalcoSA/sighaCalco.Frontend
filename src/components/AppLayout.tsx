@@ -333,11 +333,9 @@ function Header() {
 }
 
 function Footer() {
-  const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [, setTermsOpen] = useState(false);
   const [, setPrivacyOpen] = useState(false);
-  const isSinergyPage = location.pathname.startsWith("/integracion/sinergy");
 
   const handleOpenTerms = () => {
     setTermsOpen(true);
@@ -348,10 +346,6 @@ function Footer() {
   };
 
   const handleOpenHelp = () => {
-    if (!isSinergyPage) {
-      return;
-    }
-
     setHelpOpen(true);
   };
 
@@ -385,7 +379,7 @@ function Footer() {
               Privacidad
             </Typography>
             <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(247,232,216,0.35)" }}/>
-            <Typography onClick={handleOpenHelp} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: isSinergyPage ? "pointer" : "not-allowed", opacity: isSinergyPage ? 1 : 0.45, }}>
+            <Typography onClick={handleOpenHelp} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: "pointer", }}>
               Ayuda
             </Typography>
           </Box>
