@@ -35,6 +35,7 @@ const emptyEmployeeForm: LoanEmployeeForm = {
 };
 
 interface LoanForm {
+  isLoan: boolean;
   crossDocument: string;
   IdConcept: number;
   conceptName: string;
@@ -43,6 +44,7 @@ interface LoanForm {
   IdLoanStatus: number;
   loanStatusName: string;
   loanAmount: string;
+  serviceValue: string;
   numberInstallments: string;
   remainingAmount: string;
   requestDate: string;
@@ -52,6 +54,7 @@ interface LoanForm {
 }
 
 const emptyLoanForm: LoanForm = {
+  isLoan: true,
   crossDocument: "",
   IdConcept: 0,
   conceptName: "",
@@ -60,6 +63,7 @@ const emptyLoanForm: LoanForm = {
   IdLoanStatus: 0,
   loanStatusName: "",
   loanAmount: "",
+  serviceValue: "",
   numberInstallments: "",
   remainingAmount: "",
   requestDate: "",
@@ -362,6 +366,7 @@ export function CreateLoanPage() {
         employeeFullName: employeeForm.fullName.trim(),
         employeeRoleName: employeeForm.roleName.trim() || null,
         employeeCostCenterName: employeeForm.costCenterName.trim() || null,
+        isLoan: loanForm.isLoan,
         crossDocument: loanForm.crossDocument.trim() || null,
         IdConcept: loanForm.IdConcept,
         conceptName: loanForm.conceptName.trim(),
@@ -369,20 +374,25 @@ export function CreateLoanPage() {
         deductionPlanName: loanForm.deductionPlanName.trim(),
         IdLoanStatus: loanForm.IdLoanStatus,
         loanStatusName: loanForm.loanStatusName.trim(),
-        loanAmount: Number(loanForm.loanAmount),
-        numberInstallments: Number(loanForm.numberInstallments),
+        loanAmount: loanForm.isLoan ? Number(loanForm.loanAmount) : null,
+        serviceValue: loanForm.isLoan ? null : Number(loanForm.serviceValue),
+        numberInstallments: loanForm.isLoan ? Number(loanForm.numberInstallments) : null,
         requestDate: loanForm.requestDate,
         startDiscountDate: loanForm.startDiscountDate,
-        endDiscountDate: loanForm.endDiscountDate || null,
+        endDiscountDate: loanForm.isLoan ? loanForm.endDiscountDate || null : null,
         observation: loanForm.observation.trim() || null,
         createdByUserName: user?.userLogin ?? "",
-        loanInstallments: loanInstallments.map((item) => ({
-          installmentNumber: item.installmentNumber,
-          installmentValue: Number(item.installmentValue),
-          isPaid: false,
-          commitmentDate: item.commitmentDate,
-          paymentDate: null,
-        })),
+        loanInstallments:
+          loanForm.isLoan ? loanInstallments.map(
+            (item) => ({
+              installmentNumber: item.installmentNumber,
+              installmentValue: Number(item.installmentValue),
+              isPaid: false,
+              commitmentDate: item.commitmentDate,
+              paymentDate: null,
+            })
+          )
+        : [],
       });
 
       if (!response.isSuccess) {
@@ -399,23 +409,40 @@ export function CreateLoanPage() {
   };
 
   useEffect(() => {
-    const calculatedEndDate = calculateEndDiscountDate(
-      loanForm.startDiscountDate,
-      loanForm.numberInstallments,
-      loanForm.deductionPlanName
-    );
+
+    if (!loanForm.isLoan) {
+      setLoanForm((prev) => {
+
+        if (!prev.endDiscountDate) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          endDiscountDate: "",
+        };
+      });
+
+      return;
+    }
+
+    const calculatedEndDate = calculateEndDiscountDate(loanForm.startDiscountDate, loanForm.numberInstallments, loanForm.deductionPlanName);
 
     setLoanForm((prev) => {
+
       if (prev.endDiscountDate === calculatedEndDate) {
         return prev;
       }
 
       return {
         ...prev,
-        endDiscountDate: calculatedEndDate,
+        endDiscountDate:
+          calculatedEndDate,
       };
     });
+
   }, [
+    loanForm.isLoan,
     loanForm.startDiscountDate,
     loanForm.numberInstallments,
     loanForm.deductionPlanName,
@@ -527,6 +554,44 @@ export function CreateLoanPage() {
             Datos del préstamo
           </Typography>
           <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))", }, gap: 1.5, }}>
+            <TextField
+              select
+              label="Tipo"
+              value={loanForm.isLoan ? "loan" : "service"}
+              required
+              fullWidth
+              size="small"
+              disabled={savingLoan}
+              onChange={(event) => {
+                const isLoan =
+                  event.target.value === "loan";
+                setLoanForm((prev) => ({
+                  ...prev,
+                  isLoan,
+                  loanAmount: "",
+                  serviceValue: "",
+                  numberInstallments: "",
+                  endDiscountDate: "",
+                }));
+                setLoanInstallments([]);
+                setInstallmentDrafts([]);
+              }}
+              sx={{
+                "& .MuiInputBase-input": {
+                  fontSize: 13,
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: 13,
+                },
+              }}
+            >
+              <MenuItem value="loan">
+                Préstamo
+              </MenuItem>
+              <MenuItem value="service">
+                Servicio
+              </MenuItem>
+            </TextField>
             <Autocomplete
               value={selectedPayroll}
               options={allPayrolls}
@@ -640,8 +705,16 @@ export function CreateLoanPage() {
             </TextField>
             <NumericFormat
               customInput={TextField}
-              label="Valor préstamo"
-              value={loanForm.loanAmount}
+              label={
+                loanForm.isLoan
+                  ? "Valor préstamo"
+                  : "Valor servicio"
+              }
+              value={
+                loanForm.isLoan
+                  ? loanForm.loanAmount
+                  : loanForm.serviceValue
+              }
               required
               fullWidth
               size="small"
@@ -654,7 +727,13 @@ export function CreateLoanPage() {
               onValueChange={(values) => {
                 setLoanForm((prev) => ({
                   ...prev,
-                  loanAmount: values.value,
+                  ...(prev.isLoan
+                    ? {
+                        loanAmount: values.value,
+                      }
+                    : {
+                        serviceValue: values.value,
+                      }),
                 }));
               }}
               sx={{
@@ -666,40 +745,49 @@ export function CreateLoanPage() {
                 },
               }}
             />
-            <TextField
-              label="Número de cuotas"
-              type="number"
-              value={loanForm.numberInstallments}
-              required
-              fullWidth
-              size="small"
-              disabled={savingLoan}
-              slotProps={{
-                htmlInput: {
-                  step: "1",
-                  min: "1",
-                },
-              }}
-              onChange={(event) => {
-                setLoanForm((prev) => ({
-                  ...prev,
-                  numberInstallments: event.target.value,
-                }));
-                setLoanInstallments([]);
-                setInstallmentDrafts([]);
-              }}
-              sx={{
-                "& .MuiInputBase-input": { fontSize: 13 },
-                "& .MuiInputLabel-root": { fontSize: 13 },
-              }}
-            />
+            {loanForm.isLoan && (
+              <TextField
+                label="Número de cuotas"
+                type="number"
+                value={loanForm.numberInstallments}
+                required
+                fullWidth
+                size="small"
+                disabled={savingLoan}
+                slotProps={{
+                  htmlInput: {
+                    step: "1",
+                    min: "1",
+                  },
+                }}
+                onChange={(event) => {
+                  setLoanForm((prev) => ({
+                    ...prev,
+                    numberInstallments:
+                      event.target.value,
+                  }));
+                  setLoanInstallments([]);
+                  setInstallmentDrafts([]);
+                }}
+                sx={{
+                  "& .MuiInputBase-input": {
+                    fontSize: 13,
+                  },
+                  "& .MuiInputLabel-root": {
+                    fontSize: 13,
+                  },
+                }}
+              />
+            )}
             <TextField label="Fecha solicitud" type="date" value={loanForm.requestDate} required fullWidth size="small" disabled={savingLoan} slotProps={{ inputLabel: { shrink: true, },}} onChange={(event) => setLoanForm((prev) => ({ ...prev, requestDate: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
             <TextField label="Inicio descuento" type="date" value={loanForm.startDiscountDate} required fullWidth size="small" disabled={savingLoan} slotProps={{ inputLabel: { shrink: true, },}} onChange={(event) => setLoanForm((prev) => ({ ...prev, startDiscountDate: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
-            <TextField label="Fin descuento" type="date" value={loanForm.endDiscountDate} fullWidth size="small" disabled slotProps={{ inputLabel: { shrink: true, },}} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}}/>
+            {loanForm.isLoan && ( <TextField label="Fin descuento" type="date" value={loanForm.endDiscountDate} fullWidth size="small" disabled slotProps={{ inputLabel: { shrink: true, },}} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}}/> )}
             <TextField label="Documento de cruce" value={loanForm.crossDocument} fullWidth size="small" disabled={savingLoan} onChange={(event) => setLoanForm((prev) => ({ ...prev, crossDocument: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
-            <Button variant="outlined" onClick={openInstallmentModal} disabled={savingLoan} sx={{ height: 40, borderColor: "#8B6A55",  color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
-              Cuotas
-            </Button>
+            {loanForm.isLoan && (  
+              <Button variant="outlined" onClick={openInstallmentModal} disabled={savingLoan} sx={{ height: 40, borderColor: "#8B6A55",  color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                Cuotas
+              </Button>
+            )}
           </Stack>
           <TextField label="Observación" value={loanForm.observation} fullWidth multiline minRows={1} disabled={savingLoan} onChange={(event) => setLoanForm((prev) => ({ ...prev, observation: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, }, }} />
             <Stack sx={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", }}>

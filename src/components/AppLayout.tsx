@@ -5,10 +5,12 @@ import DashboardCustomizeOutlinedIcon from "@mui/icons-material/DashboardCustomi
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import ManageSearchOutlinedIcon from "@mui/icons-material/ManageSearchOutlined";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -58,6 +60,16 @@ const loanItems: MenuItem[] = [
     label: "Préstamo",
     path: "/cuotas-prestamos/prestamos",
     icon: <PriceCheckOutlinedIcon />,
+  },
+  {
+    label: "Consolidación",
+    path: "/cuotas-prestamos/consolidacion",
+    icon: <SummarizeOutlinedIcon />,
+  },
+  {
+    label: "Reportes",
+    path: "/cuotas-prestamos/reportes",
+    icon: <AssessmentOutlinedIcon />,
   },
   {
     label: "Logs",
