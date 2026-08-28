@@ -589,7 +589,7 @@ export function CreateLoanPage() {
                 Préstamo
               </MenuItem>
               <MenuItem value="service">
-                Servicio
+                Emolumento
               </MenuItem>
             </TextField>
             <Autocomplete
