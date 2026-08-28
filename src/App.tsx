@@ -3,9 +3,11 @@ import { TypeBankAccountPage } from "./pages/TypeBankAccountPage";
 import { PayrollSinergyPage } from "./pages/PayrollSinergyPage";
 import { TypeWithdrawalPage } from "./pages/TypeWithdrawalPage";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { AbsenteeismPage } from "./pages/AbsenteeismPage";
 import { DescTsueldoPage } from "./pages/DescTsueldoPage";
 import { MastersHomePage } from "./pages/MastersHomePage";
+import { LoanReportPage } from "./pages/LoanReportPage";
 import { CreateLoanPage } from "./pages/CreateLoanPage";
 import { IncapacityPage } from "./pages/IncapacityPage";
 import { PublicRoute } from "./components/PublicRoute";
@@ -53,6 +55,8 @@ export default function App() {
             </Route>
             <Route path="/cuotas-prestamos/prestamo" element={ <RequirePermission path="/cuotas-prestamos/prestamo"> <CreateLoanPage /> </RequirePermission> } />
             <Route path="/cuotas-prestamos/prestamos" element={ <RequirePermission path="/cuotas-prestamos/prestamos"> <LoanPage /> </RequirePermission> } />
+            <Route path="/cuotas-prestamos/consolidacion" element={ <RequirePermission path="/cuotas-prestamos/consolidacion"><ConsolidationPage /></RequirePermission> } />
+            <Route path="/cuotas-prestamos/reportes" element={ <RequirePermission path="/cuotas-prestamos/reportes"> <LoanReportPage /></RequirePermission> } />
             <Route path="/cuotas-prestamos/logs" element={ <RequirePermission path="/cuotas-prestamos/logs"> <LoanLogPage /> </RequirePermission> } />
             <Route path="/integracion/sinergy" element={ <RequirePermission path="/integracion/sinergy"> <FilePage /> </RequirePermission> } />
           </Route>

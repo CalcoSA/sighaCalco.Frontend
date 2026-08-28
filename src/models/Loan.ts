@@ -14,6 +14,7 @@ export interface Loan {
   employeeFullName: string;
   employeeRoleName: string | null;
   employeeCostCenterName: string | null;
+  isLoan: boolean;
   crossDocument: string | null;
   IdConcept: number;
   conceptName: string;
@@ -21,10 +22,11 @@ export interface Loan {
   deductionPlanName: string;
   IdLoanStatus: number;
   loanStatusName: string;
-  loanAmount: number;
-  numberInstallments: number;
-  paidInstallments: number;
-  remainingAmount: number;
+  loanAmount: number | null;
+  serviceValue: number | null;
+  numberInstallments: number | null;
+  paidInstallments: number | null;
+  remainingAmount: number | null;
   requestDate: string;
   startDiscountDate: string;
   endDiscountDate: string | null;
@@ -41,14 +43,16 @@ export interface LoanCreate {
   employeeFullName: string;
   employeeRoleName: string | null;
   employeeCostCenterName: string | null;
+  isLoan: boolean;
   IdConcept: number;
   conceptName: string;
   IdDeductionPlan: number;
   deductionPlanName: string;
   IdLoanStatus: number;
   loanStatusName: string;
-  loanAmount: number;
-  numberInstallments: number;
+  loanAmount: number | null;
+  serviceValue: number | null;
+  numberInstallments: number | null;
   requestDate: string;
   startDiscountDate: string;
   endDiscountDate: string | null;
@@ -61,5 +65,10 @@ export interface LoanCreate {
 export interface LoanUpdate {
   IdLoanStatus: number;
   observation: string;
+  updatedByUserName: string;
+}
+
+export interface ServiceValueUpdate {
+  serviceValue: number;
   updatedByUserName: string;
 }
