@@ -248,7 +248,7 @@ export function LoanPage() {
     const value = Number(serviceValue);
 
     if (!value || value <= 0) {
-      showResponseModal("warning", "Valor requerido", "Debe ingresar un valor válido para el servicio.");
+      showResponseModal("warning", "Valor requerido", "Debe ingresar un valor válido para el emolumento.");
       return;
     }
 
@@ -270,7 +270,7 @@ export function LoanPage() {
       setServiceValueModalOpen(false);
       setServiceToUpdate(null);
       setServiceValue("");
-      showResponseModal("success", "Valor actualizado", response.Message || "Valor del servicio actualizado correctamente.");
+      showResponseModal("success", "Valor actualizado", response.Message || "Valor del emolumento actualizado correctamente.");
 
       await loadLoans(page, pageSize, filters);
     } catch (err) {
@@ -343,16 +343,16 @@ export function LoanPage() {
         `Quincena identificada: ${result.cycleName}.`,
         `Fecha de descuento: ${result.targetInstallmentDate}.`,
         `Préstamos revisados: ${result.reviewedLoans}.`,
-        `Servicios revisados: ${result.reviewedServices}.`,
+        `Emolumentos revisados: ${result.reviewedServices}.`,
         `Préstamos activados: ${result.activatedLoans}.`,
-        `Servicios activados: ${result.activatedServices}.`,
+        `Emolumentos activados: ${result.activatedServices}.`,
         `Cuotas pagadas: ${result.paidInstallments}.`,
-        `Descuentos de servicios: ${result.serviceDiscounts}.`,
+        `Descuentos de emolumentos: ${result.serviceDiscounts}.`,
         `Préstamos terminados: ${result.finishedLoans}.`,
         `Préstamos omitidos: ${result.skippedLoans}.`,
-        `Servicios omitidos: ${result.skippedServices}.`,
+        `Emolumentos omitidos: ${result.skippedServices}.`,
         `Errores en préstamos: ${result.failedLoans}.`,
-        `Errores en servicios: ${result.failedServices}.`,
+        `Errores en emolumentos: ${result.failedServices}.`,
       ].join("\n");
 
       const hasErrors = result.failedLoans > 0 || result.failedServices > 0;
@@ -626,13 +626,13 @@ export function LoanPage() {
                     </TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} sx={{ justifyContent: "center", alignItems: "center", }}>
-                        <Tooltip title={ item.isLoan ? "Detalles préstamo" : "Detalles servicio" } arrow>
+                        <Tooltip title={ item.isLoan ? "Detalles préstamo" : "Detalles emolumento" } arrow>
                           <IconButton size="small" onClick={() => openDetailModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
                             <VisibilityOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         {!item.isLoan && (
-                          <Tooltip title="Actualizar valor del servicio" arrow>
+                          <Tooltip title="Actualizar valor del emolumento" arrow>
                             <IconButton size="small" onClick={() => openServiceValueModal(item) } sx={{ border:"1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor:"rgba(75, 46, 31, 0.05)", },}}>
                               <EditOutlinedIcon fontSize="small"/>
                             </IconButton>
@@ -682,7 +682,7 @@ export function LoanPage() {
       <Dialog open={detailModalOpen} onClose={closeDetailModal} fullWidth maxWidth="md">
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#4B2E1F", fontWeight: 700, }}>
           <VisibilityOutlinedIcon />
-          {selectedLoan?.isLoan ? "Detalles préstamo" : "Detalles servicio"}
+          {selectedLoan?.isLoan ? "Detalles préstamo" : "Detalles emolumento"}
         </DialogTitle>
         <DialogContent>
           {selectedLoan && (
@@ -700,7 +700,7 @@ export function LoanPage() {
               </Paper>
               <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 2, }}>
                 <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, mb: 2, }}>
-                  {selectedLoan.isLoan ? "Datos del préstamo" : "Datos del servicio"}
+                  {selectedLoan.isLoan ? "Datos del préstamo" : "Datos del emolumento"}
                 </Typography>
                 <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", }, gap: 1.5, }}>
                   <TextField label="Concepto" value={selectedLoan.conceptName} size="small" fullWidth disabled />
@@ -759,7 +759,7 @@ export function LoanPage() {
                   )}
                   {!selectedLoan.isLoan && (
                     <TextField
-                      label="Valor actual del servicio"
+                      label="Valor actual del emolumento"
                       value={
                         formatMoney(
                           selectedLoan.serviceValue
@@ -989,7 +989,7 @@ export function LoanPage() {
                             === 0 && (
                             <TableRow>
                               <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                                No existen descuentos registrados para este servicio.
+                                No existen descuentos registrados para este emolumento.
                               </TableCell>
                             </TableRow>
                           )}
@@ -1148,7 +1148,7 @@ export function LoanPage() {
       <Dialog open={serviceValueModalOpen} onClose={closeServiceValueModal} fullWidth maxWidth="xs">
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#4B2E1F", fontWeight: 700, }}>
           <EditOutlinedIcon />
-          Actualizar valor del servicio
+          Actualizar valor del emolumento
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
