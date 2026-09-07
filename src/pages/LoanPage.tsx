@@ -46,6 +46,13 @@ const emptyResponseModal: ResponseModalState = {
   message: "",
 };
 
+interface LoanInstallmentEditForm {
+  IdLoanInstallment?: number;
+  installmentNumber: number;
+  installmentValue: string;
+  commitmentDate: string;
+}
+
 const formatMoney = (value: number | null | undefined) => {
   if (value === null || value === undefined) {
     return "";
@@ -61,10 +68,13 @@ const formatMoney = (value: number | null | undefined) => {
 
 export function LoanPage() {
   const [serviceDiscountHistories, setServiceDiscountHistories] = useState<ServiceDiscountHistory[]>([]);
+  const [pendingInstallmentsEdit, setPendingInstallmentsEdit] = useState<LoanInstallmentEditForm[]>([]);
   const [responseModal, setResponseModal] = useState<ResponseModalState>(emptyResponseModal);
   const [loanStatusHistories, setLoanStatusHistories] = useState<LoanStatusHistory[]>([]);
+  const [loanNumberInstallmentsEdit, setLoanNumberInstallmentsEdit] = useState("");
   const [loadingServiceDiscounts, setLoadingServiceDiscounts] = useState(false);
   const [serviceDiscountPageSize, setServiceDiscountPageSize] = useState(10);
+  const [loanEndDiscountDateEdit, setLoanEndDiscountDateEdit] = useState("");
   const [serviceValueModalOpen, setServiceValueModalOpen] = useState(false);
   const [serviceToUpdate, setServiceToUpdate] = useState<Loan | null>(null);
   const [updatingServiceValue, setUpdatingServiceValue] = useState(false);
@@ -75,6 +85,8 @@ export function LoanPage() {
   const [serviceDiscountTotal, setServiceDiscountTotal] = useState(0);
   const [filters, setFilters] = useState<LoanFilters>(emptyFilters);
   const [serviceDiscountPage, setServiceDiscountPage] = useState(0);
+  const [loanEditModalOpen, setLoanEditModalOpen] = useState(false);
+  const [loanToEdit, setLoanToEdit] = useState<Loan | null>(null);
   const [loadingHistories, setLoadingHistories] = useState(false);
   const [statusObservation, setStatusObservation] = useState("");
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -82,6 +94,8 @@ export function LoanPage() {
   const [selectedStatusId, setSelectedStatusId] = useState(0);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [loanAmountEdit, setLoanAmountEdit] = useState("");
+  const [updatingLoan, setUpdatingLoan] = useState(false);
   const [serviceValue, setServiceValue] = useState("");
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,7 +103,7 @@ export function LoanPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const { user } = useAuth();
-  
+
   const showResponseModal = (severity: ResponseModalSeverity, title: string, message: string) => {
     setResponseModal({
       open: true,
@@ -159,6 +173,38 @@ export function LoanPage() {
     setLoanToUpdate(null);
     setSelectedStatusId(0);
     setStatusObservation("");
+  };
+
+  const openLoanEditModal = (loan: Loan) => {
+    const pendingInstallments = loan.loanInstallments
+        .filter((item) => !item.isPaid)
+        .sort((a, b) => a.installmentNumber - b.installmentNumber)
+        .map((item) => ({
+          IdLoanInstallment: item.IdLoanInstallment,
+          installmentNumber: item.installmentNumber,
+          installmentValue: String(item.installmentValue),
+          commitmentDate: item.commitmentDate,
+        }));
+
+    setLoanToEdit(loan);
+    setLoanAmountEdit(loan.loanAmount !== null ? String(loan.loanAmount) : "");
+    setLoanNumberInstallmentsEdit(loan.numberInstallments !== null ? String(loan.numberInstallments) : "");
+    setLoanEndDiscountDateEdit(loan.endDiscountDate ?? "");
+    setPendingInstallmentsEdit(pendingInstallments);
+    setLoanEditModalOpen(true);
+  };
+
+  const closeLoanEditModal = () => {
+    if (updatingLoan) {
+      return;
+    }
+
+    setLoanEditModalOpen(false);
+    setLoanToEdit(null);
+    setLoanAmountEdit("");
+    setLoanNumberInstallmentsEdit("");
+    setLoanEndDiscountDateEdit("");
+    setPendingInstallmentsEdit([]);
   };
 
   const openServiceValueModal = (loan: Loan) => {
@@ -237,6 +283,125 @@ export function LoanPage() {
       showResponseModal("error", "Error al cargar descuentos", getErrorMessage(err));
     } finally {
       setLoadingServiceDiscounts(false);
+    }
+  };
+
+  const handleLoanInstallmentCountChange = (value: string) => {
+    setLoanNumberInstallmentsEdit(value);
+
+    if (!loanToEdit) {
+      return;
+    }
+
+    const totalInstallments = Number(value);
+
+    if (!Number.isInteger(totalInstallments) || totalInstallments <= 0) {
+      return;
+    }
+
+    const paidCount = loanToEdit.loanInstallments.filter((item) => item.isPaid).length;
+
+    if (totalInstallments < paidCount) {
+      return;
+    }
+
+    const pendingCount = totalInstallments - paidCount;
+
+    setPendingInstallmentsEdit((previous) => {
+      const next = previous
+        .slice(0, pendingCount)
+        .map((item, index) => ({
+          ...item,
+          installmentNumber:
+            paidCount + index + 1,
+        }));
+
+      while (next.length < pendingCount) {
+        next.push({
+          IdLoanInstallment: undefined,
+          installmentNumber: paidCount + next.length + 1,
+          installmentValue: "",
+          commitmentDate: "",
+        });
+      }
+
+      return next;
+    });
+  };
+
+  const handleUpdateLoan = async () => {
+    if (!loanToEdit) {
+      return;
+    }
+
+    const loanAmount = Number(loanAmountEdit);
+    const numberInstallments = Number(loanNumberInstallmentsEdit);
+    const paidInstallments = loanToEdit.loanInstallments.filter((item) => item.isPaid);
+    const paidCount = paidInstallments.length;
+
+    if (!loanAmount || loanAmount <= 0) {
+      showResponseModal("warning", "Valor requerido", "Debe ingresar un valor válido para el préstamo.");
+      return;
+    }
+
+    if (!Number.isInteger(numberInstallments) || numberInstallments <= 0) {
+      showResponseModal("warning", "Número de cuotas", "Debe ingresar un número de cuotas válido.");
+      return;
+    }
+
+    if (numberInstallments < paidCount) {
+      showResponseModal("warning", "Número de cuotas", `El préstamo ya tiene ${paidCount} cuotas pagadas.`);
+      return;
+    }
+
+    const hasIncompleteInstallments = pendingInstallmentsEdit.some((item) => !item.installmentValue || Number(item.installmentValue) <= 0 || !item.commitmentDate);
+
+    if (hasIncompleteInstallments) {
+      showResponseModal("warning", "Cuotas incompletas", "Debe ingresar el valor y la fecha de todas las cuotas pendientes.");
+      return;
+    }
+
+    const paidTotal = paidInstallments.reduce((total, item) => total + Number(item.installmentValue), 0);
+    const pendingTotal = pendingInstallmentsEdit.reduce((total, item) => total + Number(item.installmentValue), 0);
+    const installmentsTotal = paidTotal + pendingTotal;
+
+    if (Math.abs(installmentsTotal - loanAmount) > 0.01) {
+      showResponseModal("warning", "Valor inconsistente", `La suma de las cuotas es ${formatMoney(installmentsTotal)} y debe ser igual al valor del préstamo.`);
+      return;
+    }
+
+    try {
+      setUpdatingLoan(true);
+      const response = await loanService.updateLoan(
+          loanToEdit.IdLoan,
+          {
+            loanAmount,
+            numberInstallments,
+            endDiscountDate: loanEndDiscountDateEdit || null,
+            updatedByUserName: user?.userLogin ?? "",
+            loanInstallments:
+              pendingInstallmentsEdit.map(
+                (item) => ({
+                  IdLoanInstallment: item.IdLoanInstallment,
+                  installmentNumber: item.installmentNumber,
+                  installmentValue: Number(item.installmentValue),
+                  commitmentDate: item.commitmentDate,
+                })
+              ),
+          }
+        );
+
+      if (!response.isSuccess || !response.result) {
+        throw new Error(response.Message || "No fue posible actualizar el préstamo.");
+      }
+
+      closeLoanEditModal();
+      showResponseModal("success", "Préstamo actualizado", response.Message || "Préstamo actualizado correctamente.");
+      await loadLoans(page, pageSize, filters);
+    } catch (err) {
+      showResponseModal("error", "Error al actualizar préstamo", getErrorMessage(err));
+    } finally {
+      setUpdatingLoan(false);
     }
   };
 
@@ -631,13 +796,30 @@ export function LoanPage() {
                             <VisibilityOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {!item.isLoan && (
-                          <Tooltip title="Actualizar valor del emolumento" arrow>
-                            <IconButton size="small" onClick={() => openServiceValueModal(item) } sx={{ border:"1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor:"rgba(75, 46, 31, 0.05)", },}}>
-                              <EditOutlinedIcon fontSize="small"/>
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                        <Tooltip title={ item.isLoan ? "Editar préstamo" : "Actualizar valor del emolumento" } arrow>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              if (item.isLoan) {
+                                openLoanEditModal(item);
+                              } else {
+                                openServiceValueModal(item);
+                              }
+                            }}
+                            sx={{
+                              border: "1px solid #8B6A55",
+                              color: "#4B2E1F",
+                              borderRadius: 2,
+                              "&:hover": {
+                                borderColor: "#4B2E1F",
+                                bgcolor:
+                                  "rgba(75, 46, 31, 0.05)",
+                              },
+                            }}
+                          >
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title="Actualizar estado" arrow>
                           <IconButton size="small" onClick={() => openStatusModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
                             <ChangeCircleOutlinedIcon fontSize="small" />
@@ -1141,6 +1323,213 @@ export function LoanPage() {
             {updatingStatus
               ? "Actualizando..."
               : "Actualizar estado"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={loanEditModalOpen} onClose={closeLoanEditModal} fullWidth maxWidth="md">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "#4B2E1F", fontWeight: 700, }}>
+          <EditOutlinedIcon />
+          Editar préstamo
+        </DialogTitle>
+        <DialogContent>
+          {loanToEdit && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <TextField label="Concepto" value={loanToEdit.conceptName} disabled fullWidth size="small" />
+              <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)", }, gap: 1.5, }}>
+                <NumericFormat
+                  customInput={TextField}
+                  label="Valor préstamo"
+                  value={loanAmountEdit}
+                  required
+                  fullWidth
+                  size="small"
+                  disabled={updatingLoan}
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  decimalScale={2}
+                  allowNegative={false}
+                  valueIsNumericString
+                  onValueChange={(values) =>
+                    setLoanAmountEdit(values.value)
+                  }
+                />
+                <TextField
+                  label="Número de cuotas"
+                  type="number"
+                  value={loanNumberInstallmentsEdit}
+                  required
+                  fullWidth
+                  size="small"
+                  disabled={updatingLoan}
+                  onChange={(event) =>
+                    handleLoanInstallmentCountChange(
+                      event.target.value
+                    )
+                  }
+                />
+                <TextField
+                  label="Fin descuento"
+                  type="date"
+                  value={loanEndDiscountDateEdit}
+                  fullWidth
+                  size="small"
+                  disabled={updatingLoan}
+                  slotProps={{
+                    inputLabel: {
+                      shrink: true,
+                    },
+                  }}
+                  onChange={(event) =>
+                    setLoanEndDiscountDateEdit(
+                      event.target.value
+                    )
+                  }
+                />
+              </Stack>
+              <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, }}>
+                Cuotas pagadas
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                    <TableCell>N°</TableCell>
+                    <TableCell>Valor</TableCell>
+                    <TableCell>Fecha compromiso</TableCell>
+                    <TableCell>Fecha pago</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loanToEdit.loanInstallments
+                    .filter((item) => item.isPaid)
+                    .map((item) => (
+                      <TableRow key={item.IdLoanInstallment}>
+                        <TableCell> {item.installmentNumber} </TableCell>
+                        <TableCell> {formatMoney(item.installmentValue)} </TableCell>
+                        <TableCell> {item.commitmentDate} </TableCell>
+                        <TableCell> {item.paymentDate ?? ""} </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+              <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, }}>
+                Cuotas pendientes
+              </Typography>
+              <Stack spacing={1.5}>
+                {pendingInstallmentsEdit.map(
+                  (item, index) => (
+                    <Stack key={ item.IdLoanInstallment ?? `new-${index}`} direction="row" spacing={1.5}>
+                      <TextField
+                        label="N°"
+                        value={item.installmentNumber}
+                        disabled
+                        size="small"
+                        sx={{ width: 90 }}
+                      />
+                      <NumericFormat
+                        customInput={TextField}
+                        label="Valor cuota"
+                        value={item.installmentValue}
+                        fullWidth
+                        size="small"
+                        disabled={updatingLoan}
+                        thousandSeparator="."
+                        decimalSeparator=","
+                        decimalScale={2}
+                        allowNegative={false}
+                        valueIsNumericString
+                        onValueChange={(values) => {
+                          setPendingInstallmentsEdit(
+                            (previous) =>
+                              previous.map(
+                                (
+                                  current,
+                                  currentIndex
+                                ) =>
+                                  currentIndex === index
+                                    ? {
+                                        ...current,
+                                        installmentValue:
+                                          values.value,
+                                      }
+                                    : current
+                              )
+                          );
+                        }}
+                      />
+                      <TextField
+                        label="Fecha compromiso"
+                        type="date"
+                        value={item.commitmentDate}
+                        fullWidth
+                        size="small"
+                        disabled={updatingLoan}
+                        slotProps={{
+                          inputLabel: {
+                            shrink: true,
+                          },
+                        }}
+                        onChange={(event) => {
+                          setPendingInstallmentsEdit(
+                            (previous) =>
+                              previous.map(
+                                (
+                                  current,
+                                  currentIndex
+                                ) =>
+                                  currentIndex === index
+                                    ? {
+                                        ...current,
+                                        commitmentDate:
+                                          event.target.value,
+                                      }
+                                    : current
+                              )
+                          );
+                        }}
+                      />
+                    </Stack>
+                  )
+                )}
+              </Stack>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<CloseOutlinedIcon />}
+            onClick={closeLoanEditModal}
+            disabled={updatingLoan}
+            sx={{
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={
+              updatingLoan
+                ? <CircularProgress size={16} />
+                : <SaveOutlinedIcon />
+            }
+            onClick={handleUpdateLoan}
+            disabled={updatingLoan}
+            sx={{
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            {updatingLoan
+              ? "Actualizando..."
+              : "Actualizar préstamo"}
           </Button>
         </DialogActions>
       </Dialog>

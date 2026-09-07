@@ -15,3 +15,10 @@ export interface LoanInstallmentCreate {
   commitmentDate: string;
   paymentDate: string | null;
 }
+
+export interface LoanInstallmentUpdate {
+  IdLoanInstallment?: number;
+  installmentNumber: number;
+  installmentValue: number;
+  commitmentDate: string;
+}
