@@ -1,4 +1,4 @@
-import type { LoanInstallment, LoanInstallmentCreate } from "./LoanInstallment";
+import type { LoanInstallment, LoanInstallmentCreate, LoanInstallmentUpdate } from "./LoanInstallment";
 import type { PaginationQuery } from "../components/common/Pagination";
 
 export interface LoanQuery extends PaginationQuery {
@@ -71,4 +71,34 @@ export interface LoanUpdate {
 export interface ServiceValueUpdate {
   serviceValue: number;
   updatedByUserName: string;
+}
+
+export interface LoanReportQuery {
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface LoanReport {
+  employeeDocumentNumber: string;
+  employeeFullName: string;
+  action: string;
+  isLoan: boolean;
+  IdConcept: number;
+  conceptName: string;
+  startDiscountDate: string;
+  endDiscountDate: string | null;
+  loanAmount: number | null;
+  serviceValue: number | null;
+  installmentValue: number | null;
+  numberInstallments: number | null;
+  IdDeductionPlan: number;
+  deductionPlanName: string;
+}
+
+export interface LoanEdit {
+  loanAmount: number;
+  numberInstallments: number;
+  endDiscountDate: string | null;
+  updatedByUserName: string;
+  loanInstallments: LoanInstallmentUpdate[];
 }
