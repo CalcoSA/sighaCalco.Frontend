@@ -708,7 +708,7 @@ export function CreateLoanPage() {
               label={
                 loanForm.isLoan
                   ? "Valor préstamo"
-                  : "Valor servicio"
+                  : "Valor emolumento"
               }
               value={
                 loanForm.isLoan

@@ -1,4 +1,4 @@
-import type { LoanQuery, Loan, LoanCreate, LoanUpdate, ServiceValueUpdate } from "../models/Loan";
+import type { LoanQuery, Loan, LoanReportQuery, LoanReport,  LoanCreate, LoanUpdate, LoanEdit, ServiceValueUpdate } from "../models/Loan";
 import type { PaginatedResult } from "../components/common/Pagination";
 import type { LoanScheduled } from "../models/LoanScheduled";
 import type { ApiResponse } from "../models/ApiResponse";
@@ -21,6 +21,18 @@ export const loanService = {
     );
     return response.data;
   },
+
+  async getReport(query: LoanReportQuery): Promise<ApiResponse<LoanReport[]>> {
+    const response = await loansApiClient.get<ApiResponse<LoanReport[]>>("/loans/loan/report",
+        {
+          params: {
+            dateFrom: query.dateFrom,
+            dateTo: query.dateTo,
+          },
+        }
+      );
+    return response.data;
+  },
     
   async create(data: LoanCreate): Promise<ApiResponse<Loan>> {
     const response = await loansApiClient.post<ApiResponse<Loan>>("/loans/loan/", data);
@@ -29,6 +41,11 @@ export const loanService = {
 
   async updateStatus(IdLoan: number, data: LoanUpdate): Promise<ApiResponse<Loan>> {
     const response = await loansApiClient.put<ApiResponse<Loan>>(`/loans/loan/${IdLoan}/status`, data);
+    return response.data;
+  },
+
+  async updateLoan(IdLoan: number, data: LoanEdit): Promise<ApiResponse<Loan>> {
+    const response = await loansApiClient.put<ApiResponse<Loan>>(`/loans/loan/${IdLoan}`, data);
     return response.data;
   },
 
