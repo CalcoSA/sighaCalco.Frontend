@@ -330,17 +330,97 @@ export function CreateLoanPage() {
   };
 
   const acceptInstallments = () => {
+    const loanAmountCents = Math.round(Number(loanForm.loanAmount) * 100);
+
+    const installmentTotalCents =
+      installmentDrafts.reduce(
+        (total, item) =>
+          total +
+          Math.round(
+            Number(item.installmentValue || 0) * 100
+          ),
+        0
+      );
+
+    const hasEmptyInstallments =
+      installmentDrafts.some(
+        (item) =>
+          !item.installmentValue ||
+          Number(item.installmentValue) <= 0
+      );
+
+    if (hasEmptyInstallments) {
+      showResponseModal("warning", "Cuotas incompletas", "Todas las cuotas deben tener un valor mayor a cero.");
+      return;
+    }
+
+    if (installmentTotalCents !== loanAmountCents) {
+      showResponseModal(
+        "warning",
+        "Valor de cuotas incorrecto",
+        `La suma de las cuotas debe ser igual al valor total del préstamo (${Number(
+          loanForm.loanAmount
+        ).toLocaleString("es-CO", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}).`
+      );
+      return;
+    }
+
     setLoanInstallments(installmentDrafts);
     setInstallmentModalOpen(false);
   };
 
   const replicateFirstInstallmentValue = () => {
-    const firstValue = installmentDrafts[0]?.installmentValue ?? "";
+    const loanAmount = Number(loanForm.loanAmount);
+    const firstValue = Number(installmentDrafts[0]?.installmentValue ?? "");
+    const totalInstallments = installmentDrafts.length;
+
+    if (!loanAmount || loanAmount <= 0) {
+      showResponseModal("warning", "Valor del préstamo", "Debes ingresar primero el valor total del préstamo.");
+      return;
+    }
+
+    if (!firstValue || firstValue <= 0) {
+      showResponseModal("warning", "Valor de la cuota", "Debes ingresar primero el valor de la primera cuota.");
+      return;
+    }
+
+    if (totalInstallments <= 0) {
+      return;
+    }
+
+    const loanAmountCents = Math.round(loanAmount * 100);
+    const firstValueCents = Math.round(firstValue * 100);
+
+    if (totalInstallments === 1) {
+      setInstallmentDrafts((prev) =>
+        prev.map((item) => ({
+          ...item,
+          installmentValue: String(loanAmountCents / 100),
+        }))
+      );
+
+      return;
+    }
+
+    const repeatedInstallments = totalInstallments - 1;
+    const repeatedTotal = firstValueCents * repeatedInstallments;
+    const lastInstallmentCents = loanAmountCents - repeatedTotal;
+
+    if (lastInstallmentCents <= 0) {
+      showResponseModal("warning", "Valor de cuotas inválido", "El valor ingresado para la primera cuota es demasiado alto. " + "La suma de las cuotas anteriores a la última no puede igualar ni superar el valor total del préstamo.");
+      return;
+    }
 
     setInstallmentDrafts((prev) =>
-      prev.map((item) => ({
+      prev.map((item, index) => ({
         ...item,
-        installmentValue: firstValue,
+        installmentValue:
+          index === totalInstallments - 1
+            ? String(lastInstallmentCents / 100)
+            : String(firstValueCents / 100),
       }))
     );
   };
@@ -790,8 +870,8 @@ export function CreateLoanPage() {
             )}
           </Stack>
           <TextField label="Observación" value={loanForm.observation} fullWidth multiline minRows={1} disabled={savingLoan} onChange={(event) => setLoanForm((prev) => ({ ...prev, observation: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, }, }} />
-            <Stack sx={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", }}>
-              <Button variant="outlined" onClick={handleCreateLoan} disabled={savingLoan} sx={{ minWidth: 180, height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+            <Stack sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, justifyContent: "flex-end", width: "100%", }}>
+              <Button variant="outlined" onClick={handleCreateLoan} disabled={savingLoan} sx={{ width: { xs: "100%", md: "auto" }, minWidth: { xs: 0, md: 180 }, height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
                 {savingLoan ? "Guardando..." : "Guardar préstamo"}
               </Button>
             </Stack>
