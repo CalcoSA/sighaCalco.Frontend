@@ -70,6 +70,7 @@ export interface LoanUpdate {
 
 export interface ServiceValueUpdate {
   serviceValue: number;
+  observation: string | null;
   updatedByUserName: string;
 }
 
@@ -99,6 +100,7 @@ export interface LoanEdit {
   loanAmount: number;
   numberInstallments: number;
   endDiscountDate: string | null;
+  observation: string | null;
   updatedByUserName: string;
   loanInstallments: LoanInstallmentUpdate[];
 }
