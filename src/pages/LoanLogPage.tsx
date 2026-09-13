@@ -105,7 +105,7 @@ export function LoanLogPage() {
           <Typography sx={{ color: "#4B2E1F", fontSize: 18, fontWeight: 700, }}>
             Filtros de búsqueda
           </Typography>
-          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "1.2fr 1fr 1fr auto", }, gap: 1.5, alignItems: "center", }}>
+          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1.2fr 1fr 1fr auto", }, gap: 1.5, alignItems: "center", }}>
             <TextField
               label="Documento colaborador"
               value={filters.employeeDocumentNumber}
@@ -166,11 +166,11 @@ export function LoanLogPage() {
                 }))
               }
             />
-            <Stack sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: { xs: "flex-end", sm: "flex-end", md: "flex-start", }, alignItems: "center", }}>
-              <Button variant="outlined" startIcon={ loading ? <CircularProgress size={16} /> : <SearchOutlinedIcon /> } onClick={handleSearch} disabled={loading} sx={{ height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+            <Stack sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1, justifyContent: "flex-start", alignItems: "stretch", width: "100%", }}>
+              <Button variant="outlined" startIcon={ loading ? <CircularProgress size={16} /> : <SearchOutlinedIcon /> } onClick={handleSearch} disabled={loading} sx={{ width: { xs: "100%", md: "auto" }, height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
                 Buscar
               </Button>
-              <Button variant="outlined" startIcon={<CleaningServicesOutlinedIcon />} onClick={handleClean} disabled={loading} sx={{ height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+              <Button variant="outlined" startIcon={<CleaningServicesOutlinedIcon />} onClick={handleClean} disabled={loading} sx={{ width: { xs: "100%", md: "auto" }, height: 40, borderColor: "#8B6A55", color: "#4B2E1F", textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
                 Limpiar
               </Button>
             </Stack>
@@ -184,65 +184,67 @@ export function LoanLogPage() {
           </Box>
         ) : (
           <>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#F7E8D8" }}>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Acción
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Id préstamo
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Documento
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Concepto
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Estado
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Cuota
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Estado cuota
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Observación
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Usuario
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Fecha acción
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {logs.map((item) => (
-                  <TableRow key={item.IdLoanLog} hover>
-                    <TableCell>{item.actionType}</TableCell>
-                    <TableCell>{item.IdLoan}</TableCell>
-                    <TableCell>{item.employeeDocumentNumber ?? ""}</TableCell>
-                    <TableCell>{item.conceptName ?? ""}</TableCell>
-                    <TableCell>{item.loanStatusName ?? ""}</TableCell>
-                    <TableCell>{item.installmentNumber ?? ""}</TableCell>
-                    <TableCell>{item.installmentStatusName ?? ""}</TableCell>
-                    <TableCell>{item.observation ?? ""}</TableCell>
-                    <TableCell>{item.actorUserName ?? ""}</TableCell>
-                    <TableCell>{item.actionDate}</TableCell>
-                  </TableRow>
-                ))}
-                {logs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                      No hay logs para mostrar.
+            <Box sx={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch", }}>
+              <Table sx={{ minWidth: 1400, }}>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Acción
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Id préstamo
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Documento
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Concepto
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Estado
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Cuota
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Estado cuota
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Observación
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Usuario
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Fecha acción
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {logs.map((item) => (
+                    <TableRow key={item.IdLoanLog} hover>
+                      <TableCell>{item.actionType}</TableCell>
+                      <TableCell>{item.IdLoan}</TableCell>
+                      <TableCell>{item.employeeDocumentNumber ?? ""}</TableCell>
+                      <TableCell>{item.conceptName ?? ""}</TableCell>
+                      <TableCell>{item.loanStatusName ?? ""}</TableCell>
+                      <TableCell>{item.installmentNumber ?? ""}</TableCell>
+                      <TableCell>{item.installmentStatusName ?? ""}</TableCell>
+                      <TableCell>{item.observation ?? ""}</TableCell>
+                      <TableCell>{item.actorUserName ?? ""}</TableCell>
+                      <TableCell>{item.actionDate}</TableCell>
+                    </TableRow>
+                  ))}
+                  {logs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                        No hay logs para mostrar.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
             <TablePagination
               component="div"
               count={total}

@@ -83,9 +83,11 @@ export function LoanPage() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToUpdate, setLoanToUpdate] = useState<Loan | null>(null);
   const [serviceDiscountTotal, setServiceDiscountTotal] = useState(0);
+  const [loanEditObservation, setLoanEditObservation] = useState("");
   const [filters, setFilters] = useState<LoanFilters>(emptyFilters);
   const [serviceDiscountPage, setServiceDiscountPage] = useState(0);
   const [loanEditModalOpen, setLoanEditModalOpen] = useState(false);
+  const [serviceObservation, setServiceObservation] = useState("");
   const [loanToEdit, setLoanToEdit] = useState<Loan | null>(null);
   const [loadingHistories, setLoadingHistories] = useState(false);
   const [statusObservation, setStatusObservation] = useState("");
@@ -192,6 +194,7 @@ export function LoanPage() {
     setLoanEndDiscountDateEdit(loan.endDiscountDate ?? "");
     setPendingInstallmentsEdit(pendingInstallments);
     setLoanEditModalOpen(true);
+    setLoanEditObservation("");
   };
 
   const closeLoanEditModal = () => {
@@ -205,11 +208,19 @@ export function LoanPage() {
     setLoanNumberInstallmentsEdit("");
     setLoanEndDiscountDateEdit("");
     setPendingInstallmentsEdit([]);
+    setLoanEditObservation("");
   };
 
   const openServiceValueModal = (loan: Loan) => {
     setServiceToUpdate(loan);
-    setServiceValue(loan.serviceValue !== null ? String(loan.serviceValue) : "");
+
+    setServiceValue(
+      loan.serviceValue !== null
+        ? String(loan.serviceValue)
+        : ""
+    );
+
+    setServiceObservation("");
     setServiceValueModalOpen(true);
   };
 
@@ -221,6 +232,7 @@ export function LoanPage() {
     setServiceValueModalOpen(false);
     setServiceToUpdate(null);
     setServiceValue("");
+    setServiceObservation("");
   };
 
   const loadLoans = async (currentPage = page, currentPageSize = pageSize, currentFilters = filters) => {
@@ -379,6 +391,7 @@ export function LoanPage() {
             numberInstallments,
             endDiscountDate: loanEndDiscountDateEdit || null,
             updatedByUserName: user?.userLogin ?? "",
+            observation: loanEditObservation.trim() || null,
             loanInstallments:
               pendingInstallmentsEdit.map(
                 (item) => ({
@@ -424,6 +437,7 @@ export function LoanPage() {
         serviceToUpdate.IdLoan,
         {
           serviceValue: value,
+          observation: serviceObservation.trim() || null,
           updatedByUserName: user?.userLogin ?? "",
         }
       );
@@ -435,6 +449,7 @@ export function LoanPage() {
       setServiceValueModalOpen(false);
       setServiceToUpdate(null);
       setServiceValue("");
+      setServiceObservation("");
       showResponseModal("success", "Valor actualizado", response.Message || "Valor del emolumento actualizado correctamente.");
 
       await loadLoans(page, pageSize, filters);
@@ -537,7 +552,7 @@ export function LoanPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", justifyContent: "space-between", }}>
+      <Stack sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1.5, alignItems: { xs: "stretch", md: "center" }, justifyContent: "space-between", }}>
         <Stack sx={{ display: "flex", flexDirection: "row", gap: 1.5, alignItems: "center", }}>
           <PriceCheckOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, }} />
           <Typography sx={{ color: "#4B2E1F", fontSize: 26, fontWeight: 700, }}>
@@ -556,6 +571,7 @@ export function LoanPage() {
           onClick={handleProcessScheduled}
           disabled={processingScheduled || loading}
           sx={{
+            width: { xs: "100%", md: "auto" },
             height: 40,
             borderColor: "#8B6A55",
             color: "#4B2E1F",
@@ -575,7 +591,7 @@ export function LoanPage() {
           <Typography sx={{ color: "#4B2E1F", fontSize: 18, fontWeight: 700, }}>
             Filtros de búsqueda
           </Typography>
-          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))", }, gap: 1.5, alignItems: "center", }}>
+          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(4, minmax(0, 1fr))", }, gap: 1.5, alignItems: "center", }}>
             <TextField
               label="Documento colaborador"
               value={filters.employeeDocumentNumber}
@@ -658,7 +674,7 @@ export function LoanPage() {
                 }))
               }
             />
-            <Stack sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "flex-end", gridColumn: { xs: "1 / -1", sm: "1 / -1", md: "1 / -1", },}}>
+            <Stack sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1, justifyContent: "flex-end", gridColumn: "1 / -1", width: "100%", }}>
               <Button
                 variant="outlined"
                 startIcon={
@@ -667,6 +683,7 @@ export function LoanPage() {
                 onClick={handleSearch}
                 disabled={loading}
                 sx={{
+                  width: { xs: "100%", md: "auto" },
                   height: 40,
                   borderColor: "#8B6A55",
                   color: "#4B2E1F",
@@ -686,6 +703,7 @@ export function LoanPage() {
                 onClick={handleClean}
                 disabled={loading}
                 sx={{
+                  width: { xs: "100%", md: "auto" },
                   height: 40,
                   borderColor: "#8B6A55",
                   color: "#4B2E1F",
@@ -710,134 +728,136 @@ export function LoanPage() {
           </Box>
         ) : (
           <>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#F7E8D8" }}>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Documento
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Colaborador
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Concepto
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Plan de descuento
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Estado
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Fecha solicitud
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Valor
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
-                    Cuotas
-                  </TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loans.map((item) => (
-                  <TableRow key={item.IdLoan} hover>
-                    <TableCell>{item.employeeDocumentNumber}</TableCell>
-                    <TableCell>{item.employeeFullName}</TableCell>
-                    <TableCell>{item.conceptName}</TableCell>
-                    <TableCell>{item.deductionPlanName}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={item.loanStatusName}
-                        size="small"
-                        sx={{
-                          bgcolor:
-                            item.loanStatusName === "Activo"
-                              ? "#E8F5E9"
-                              : item.loanStatusName === "Inactivo"
-                              ? "#FFEBEE"
-                              : item.loanStatusName === "Suspendido"
-                              ? "#FFF4E5"
-                              : item.loanStatusName === "Terminado"
-                              ? "#E3F2FD"
-                              : item.loanStatusName === "Cancelado"
-                              ? "#FCE4EC"
-                              : "#F5F5F5",
-
-                          color:
-                            item.loanStatusName === "Activo"
-                              ? "#2E7D32"
-                              : item.loanStatusName === "Inactivo"
-                              ? "#C62828"
-                              : item.loanStatusName === "Suspendido"
-                              ? "#ED6C02"
-                              : item.loanStatusName === "Terminado"
-                              ? "#1565C0"
-                              : item.loanStatusName === "Cancelado"
-                              ? "#AD1457"
-                              : "#616161",
-
-                          fontWeight: 600,
-                        }}
-                      />
+            <Box sx={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch", }}>
+              <Table sx={{ minWidth: 1100, }}>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "#F7E8D8" }}>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Documento
                     </TableCell>
-                    <TableCell>{item.requestDate}</TableCell>
-                    <TableCell align="right">
-                      {formatMoney(item.isLoan ? item.loanAmount : item.serviceValue)}
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Colaborador
                     </TableCell>
-                    <TableCell align="right">
-                      {item.isLoan ? `${item.paidInstallments ?? 0}/${item.numberInstallments ?? 0}` : ""}
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Concepto
                     </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={1} sx={{ justifyContent: "center", alignItems: "center", }}>
-                        <Tooltip title={ item.isLoan ? "Detalles préstamo" : "Detalles emolumento" } arrow>
-                          <IconButton size="small" onClick={() => openDetailModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
-                            <VisibilityOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={ item.isLoan ? "Editar préstamo" : "Actualizar valor del emolumento" } arrow>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              if (item.isLoan) {
-                                openLoanEditModal(item);
-                              } else {
-                                openServiceValueModal(item);
-                              }
-                            }}
-                            sx={{
-                              border: "1px solid #8B6A55",
-                              color: "#4B2E1F",
-                              borderRadius: 2,
-                              "&:hover": {
-                                borderColor: "#4B2E1F",
-                                bgcolor:
-                                  "rgba(75, 46, 31, 0.05)",
-                              },
-                            }}
-                          >
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Actualizar estado" arrow>
-                          <IconButton size="small" onClick={() => openStatusModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
-                            <ChangeCircleOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Plan de descuento
                     </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Estado
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Fecha solicitud
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Valor
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F" }}>
+                      Cuotas
+                    </TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
-                ))}
-                {loans.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                      No hay préstamos para mostrar.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {loans.map((item) => (
+                    <TableRow key={item.IdLoan} hover>
+                      <TableCell>{item.employeeDocumentNumber}</TableCell>
+                      <TableCell>{item.employeeFullName}</TableCell>
+                      <TableCell>{item.conceptName}</TableCell>
+                      <TableCell>{item.deductionPlanName}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={item.loanStatusName}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              item.loanStatusName === "Activo"
+                                ? "#E8F5E9"
+                                : item.loanStatusName === "Inactivo"
+                                ? "#FFEBEE"
+                                : item.loanStatusName === "Suspendido"
+                                ? "#FFF4E5"
+                                : item.loanStatusName === "Terminado"
+                                ? "#E3F2FD"
+                                : item.loanStatusName === "Cancelado"
+                                ? "#FCE4EC"
+                                : "#F5F5F5",
+
+                            color:
+                              item.loanStatusName === "Activo"
+                                ? "#2E7D32"
+                                : item.loanStatusName === "Inactivo"
+                                ? "#C62828"
+                                : item.loanStatusName === "Suspendido"
+                                ? "#ED6C02"
+                                : item.loanStatusName === "Terminado"
+                                ? "#1565C0"
+                                : item.loanStatusName === "Cancelado"
+                                ? "#AD1457"
+                                : "#616161",
+
+                            fontWeight: 600,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>{item.requestDate}</TableCell>
+                      <TableCell align="right">
+                        {formatMoney(item.isLoan ? item.loanAmount : item.serviceValue)}
+                      </TableCell>
+                      <TableCell align="right">
+                        {item.isLoan ? `${item.paidInstallments ?? 0}/${item.numberInstallments ?? 0}` : ""}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: "center", alignItems: "center", }}>
+                          <Tooltip title={ item.isLoan ? "Detalles préstamo" : "Detalles emolumento" } arrow>
+                            <IconButton size="small" onClick={() => openDetailModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                              <VisibilityOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={ item.isLoan ? "Editar préstamo" : "Actualizar valor del emolumento" } arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                if (item.isLoan) {
+                                  openLoanEditModal(item);
+                                } else {
+                                  openServiceValueModal(item);
+                                }
+                              }}
+                              sx={{
+                                border: "1px solid #8B6A55",
+                                color: "#4B2E1F",
+                                borderRadius: 2,
+                                "&:hover": {
+                                  borderColor: "#4B2E1F",
+                                  bgcolor:
+                                    "rgba(75, 46, 31, 0.05)",
+                                },
+                              }}
+                            >
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Actualizar estado" arrow>
+                            <IconButton size="small" onClick={() => openStatusModal(item)} sx={{ border: "1px solid #8B6A55", color: "#4B2E1F", borderRadius: 2, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(75, 46, 31, 0.05)", },}}>
+                              <ChangeCircleOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {loans.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                        No hay préstamos para mostrar.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
             <TablePagination
               component="div"
               count={total}
@@ -1492,6 +1512,24 @@ export function LoanPage() {
                   )
                 )}
               </Stack>
+              <TextField
+                label="Observación"
+                value={loanEditObservation}
+                fullWidth
+                multiline
+                minRows={3}
+                disabled={updatingLoan}
+                slotProps={{
+                  htmlInput: {
+                    maxLength: 2000,
+                  },
+                }}
+                onChange={(event) =>
+                  setLoanEditObservation(
+                    event.target.value
+                  )
+                }
+              />
             </Stack>
           )}
         </DialogContent>
@@ -1562,6 +1600,20 @@ export function LoanPage() {
                   values.value
                 );
               }}
+            />
+            <TextField
+              label="Observación"
+              value={serviceObservation}
+              fullWidth
+              multiline
+              minRows={3}
+              disabled={updatingServiceValue}
+              slotProps={{
+                htmlInput: {
+                  maxLength: 2000,
+                },
+              }}
+              onChange={(event) => setServiceObservation(event.target.value)}
             />
           </Stack>
         </DialogContent>
