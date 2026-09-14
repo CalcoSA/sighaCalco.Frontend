@@ -1,4 +1,5 @@
 import type { LoanQuery, Loan, LoanReportQuery, LoanReport,  LoanCreate, LoanUpdate, LoanEdit, ServiceValueUpdate } from "../models/Loan";
+import type { LoanReconciliationResult } from "../models/LoanReconciliation";
 import type { PaginatedResult } from "../components/common/Pagination";
 import type { LoanScheduled } from "../models/LoanScheduled";
 import type { ApiResponse } from "../models/ApiResponse";
@@ -31,6 +32,13 @@ export const loanService = {
           },
         }
       );
+    return response.data;
+  },
+
+  async getReconciliation(file: File): Promise<ApiResponse<LoanReconciliationResult>> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await loansApiClient.post<ApiResponse<LoanReconciliationResult>>("/loans/loan/reconciliation", formData);
     return response.data;
   },
     
