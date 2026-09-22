@@ -1,7 +1,6 @@
-import { Alert, Autocomplete, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack, TextField, Tooltip, Typography, } from "@mui/material";
+import { Alert, Autocomplete, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment, MenuItem, Paper, Stack, TextField, Typography, } from "@mui/material";
 import type { ResponseModalSeverity, ResponseModalState, } from "../components/common/ModalType";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
 import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
 import { payrollSinergyService } from "../services/payrollSinergyService";
@@ -45,6 +44,7 @@ interface LoanForm {
   loanStatusName: string;
   loanAmount: string;
   serviceValue: string;
+  installmentValue: string;
   numberInstallments: string;
   remainingAmount: string;
   requestDate: string;
@@ -64,6 +64,7 @@ const emptyLoanForm: LoanForm = {
   loanStatusName: "",
   loanAmount: "",
   serviceValue: "",
+  installmentValue: "",
   numberInstallments: "",
   remainingAmount: "",
   requestDate: "",
@@ -181,6 +182,40 @@ const calculateEndDiscountDate = ( startDiscountDate: string, numberInstallments
   return dates.length > 0 ? dates[dates.length - 1] : "";
 };
 
+const calculateInstallmentPlan = (loanAmountValue: string, installmentValue: string) => {
+  const loanAmountCents = Math.round(Number(loanAmountValue || 0) * 100);
+
+  const installmentValueCents = Math.round(Number(installmentValue || 0) * 100);
+
+  if (loanAmountCents <= 0 || installmentValueCents <= 0) {
+    return {
+      numberInstallments: 0,
+      installmentValues: [] as string[],
+    };
+  }
+
+  const numberInstallments = Math.ceil(loanAmountCents / installmentValueCents);
+
+  const installmentValues =
+    Array.from({ length: numberInstallments, },
+      (_, index) => {
+        if (index < numberInstallments - 1) {
+          return String(installmentValueCents / 100);
+        }
+        const previousTotal = installmentValueCents * (numberInstallments - 1);
+
+        const lastInstallmentCents = loanAmountCents - previousTotal;
+
+        return String(lastInstallmentCents / 100);
+      }
+    );
+
+  return {
+    numberInstallments,
+    installmentValues,
+  };
+};
+
 export function CreateLoanPage() {
   const [responseModal, setResponseModal] = useState<ResponseModalState>(emptyResponseModal);
   const [installmentDrafts, setInstallmentDrafts] = useState<LoanInstallmentForm[]>([]);
@@ -287,11 +322,48 @@ export function CreateLoanPage() {
     }
   };
 
-  const openInstallmentModal = () => {
-    const numberInstallments = Number(loanForm.numberInstallments);
+  const buildAutomaticInstallments = (): LoanInstallmentForm[] => {
+    if (!loanForm.isLoan) {
+      return [];
+    }
 
-    if (!numberInstallments || numberInstallments <= 0) {
-      showResponseModal("warning", "Número de cuotas", "Debes ingresar primero el número de cuotas.");
+    const plan = calculateInstallmentPlan(loanForm.loanAmount, loanForm.installmentValue);
+
+    if (plan.numberInstallments <= 0) {
+      return [];
+    }
+
+    if (!loanForm.startDiscountDate || !loanForm.deductionPlanName) {
+      return [];
+    }
+
+    const commitmentDates =
+      calculateCommitmentDates(
+        loanForm.startDiscountDate,
+        String(plan.numberInstallments),
+        loanForm.deductionPlanName
+      );
+
+    return plan.installmentValues.map(
+      (installmentValue, index) => ({
+        installmentNumber: index + 1,
+        installmentValue,
+        commitmentDate: commitmentDates[index] ?? "",
+      })
+    );
+  };
+
+  const openInstallmentModal = () => {
+    const loanAmount = Number(loanForm.loanAmount);
+    const installmentValue = Number(loanForm.installmentValue);
+
+    if (!loanAmount || loanAmount <= 0) {
+      showResponseModal("warning", "Valor del préstamo", "Debes ingresar primero el valor total del préstamo.");
+      return;
+    }
+
+    if (!installmentValue || installmentValue <= 0) {
+      showResponseModal("warning", "Valor de la cuota", "Debes ingresar primero el valor de la cuota.");
       return;
     }
 
@@ -305,23 +377,22 @@ export function CreateLoanPage() {
       return;
     }
 
-    const commitmentDates = calculateCommitmentDates(loanForm.startDiscountDate, loanForm.numberInstallments, loanForm.deductionPlanName);
+    const calculatedInstallments = buildAutomaticInstallments();
 
-    const drafts = Array.from({ length: numberInstallments }, (_, index) => {
-      const installmentNumber = index + 1;
+    if (calculatedInstallments.length === 0) {
+      showResponseModal("warning", "Cuotas", "No fue posible calcular las cuotas del préstamo.");
+      return;
+    }
 
-      const existingInstallment = loanInstallments.find(
-        (item) => item.installmentNumber === installmentNumber
-      );
-
-      return {
-        installmentNumber,
-        installmentValue: existingInstallment?.installmentValue ?? "",
-        commitmentDate: commitmentDates[index] ?? "",
-      };
-    });
+    const drafts = loanInstallments.length > 0 ? loanInstallments : calculatedInstallments;
 
     setInstallmentDrafts(drafts);
+
+    setLoanForm((prev) => ({
+      ...prev,
+      numberInstallments: String(calculatedInstallments.length),
+    }));
+
     setInstallmentModalOpen(true);
   };
 
@@ -372,59 +443,6 @@ export function CreateLoanPage() {
     setInstallmentModalOpen(false);
   };
 
-  const replicateFirstInstallmentValue = () => {
-    const loanAmount = Number(loanForm.loanAmount);
-    const firstValue = Number(installmentDrafts[0]?.installmentValue ?? "");
-    const totalInstallments = installmentDrafts.length;
-
-    if (!loanAmount || loanAmount <= 0) {
-      showResponseModal("warning", "Valor del préstamo", "Debes ingresar primero el valor total del préstamo.");
-      return;
-    }
-
-    if (!firstValue || firstValue <= 0) {
-      showResponseModal("warning", "Valor de la cuota", "Debes ingresar primero el valor de la primera cuota.");
-      return;
-    }
-
-    if (totalInstallments <= 0) {
-      return;
-    }
-
-    const loanAmountCents = Math.round(loanAmount * 100);
-    const firstValueCents = Math.round(firstValue * 100);
-
-    if (totalInstallments === 1) {
-      setInstallmentDrafts((prev) =>
-        prev.map((item) => ({
-          ...item,
-          installmentValue: String(loanAmountCents / 100),
-        }))
-      );
-
-      return;
-    }
-
-    const repeatedInstallments = totalInstallments - 1;
-    const repeatedTotal = firstValueCents * repeatedInstallments;
-    const lastInstallmentCents = loanAmountCents - repeatedTotal;
-
-    if (lastInstallmentCents <= 0) {
-      showResponseModal("warning", "Valor de cuotas inválido", "El valor ingresado para la primera cuota es demasiado alto. " + "La suma de las cuotas anteriores a la última no puede igualar ni superar el valor total del préstamo.");
-      return;
-    }
-
-    setInstallmentDrafts((prev) =>
-      prev.map((item, index) => ({
-        ...item,
-        installmentValue:
-          index === totalInstallments - 1
-            ? String(lastInstallmentCents / 100)
-            : String(firstValueCents / 100),
-      }))
-    );
-  };
-
   const cleanForm = () => {
     setDocumentNumber("");
     setEmployeeForm(emptyEmployeeForm);
@@ -441,52 +459,93 @@ export function CreateLoanPage() {
     try {
       setSavingLoan(true);
 
-      const response = await loanService.create({
-        employeeDocumentNumber: employeeForm.documentNumber.trim().replace(/\D/g, ""),
-        employeeFullName: employeeForm.fullName.trim(),
-        employeeRoleName: employeeForm.roleName.trim() || null,
-        employeeCostCenterName: employeeForm.costCenterName.trim() || null,
-        isLoan: loanForm.isLoan,
-        crossDocument: loanForm.crossDocument.trim() || null,
-        IdConcept: loanForm.IdConcept,
-        conceptName: loanForm.conceptName.trim(),
-        IdDeductionPlan: loanForm.IdDeductionPlan,
-        deductionPlanName: loanForm.deductionPlanName.trim(),
-        IdLoanStatus: loanForm.IdLoanStatus,
-        loanStatusName: loanForm.loanStatusName.trim(),
-        loanAmount: loanForm.isLoan ? Number(loanForm.loanAmount) : null,
-        serviceValue: loanForm.isLoan ? null : Number(loanForm.serviceValue),
-        numberInstallments: loanForm.isLoan ? Number(loanForm.numberInstallments) : null,
-        requestDate: loanForm.requestDate,
-        startDiscountDate: loanForm.startDiscountDate,
-        endDiscountDate: loanForm.isLoan ? loanForm.endDiscountDate || null : null,
-        observation: loanForm.observation.trim() || null,
-        createdByUserName: user?.userLogin ?? "",
-        loanInstallments:
-          loanForm.isLoan ? loanInstallments.map(
-            (item) => ({
-              installmentNumber: item.installmentNumber,
-              installmentValue: Number(item.installmentValue),
-              isPaid: false,
-              commitmentDate: item.commitmentDate,
-              paymentDate: null,
-            })
-          )
-        : [],
-      });
+      let installmentsToSend: LoanInstallmentForm[] = [];
+
+      if (loanForm.isLoan) {
+        installmentsToSend = loanInstallments.length > 0 ? loanInstallments : buildAutomaticInstallments();
+
+        if (installmentsToSend.length === 0) {
+          showResponseModal("warning", "Cuotas", "No fue posible generar las cuotas del préstamo. Verifica el valor del préstamo, valor de cuota, fecha de inicio y plan de deducción.");
+          return;
+        }
+      }
+
+      const response =
+        await loanService.create({
+          employeeDocumentNumber: employeeForm.documentNumber.trim().replace(/\D/g, ""),
+          employeeFullName: employeeForm.fullName.trim(),
+          employeeRoleName: employeeForm.roleName.trim() || null,
+          employeeCostCenterName: employeeForm.costCenterName.trim() || null,
+          isLoan: loanForm.isLoan,
+          crossDocument: loanForm.crossDocument.trim() || null,
+          IdConcept: loanForm.IdConcept,
+          conceptName: loanForm.conceptName.trim(),
+          IdDeductionPlan: loanForm.IdDeductionPlan,
+          deductionPlanName: loanForm.deductionPlanName.trim(),
+          IdLoanStatus: loanForm.IdLoanStatus,
+          loanStatusName: loanForm.loanStatusName.trim(),
+          loanAmount: loanForm.isLoan ? Number(loanForm.loanAmount) : null,
+          serviceValue: loanForm.isLoan ? null : Number(loanForm.serviceValue),
+          numberInstallments: loanForm.isLoan ? installmentsToSend.length : null,
+          requestDate: loanForm.requestDate,
+          startDiscountDate: loanForm.startDiscountDate,
+          endDiscountDate: loanForm.isLoan ? loanForm.endDiscountDate || null : null,
+          observation: loanForm.observation.trim() || null,
+          createdByUserName: user?.userLogin ?? "",
+          loanInstallments:
+            loanForm.isLoan
+              ? installmentsToSend.map(
+                  (item) => ({
+                    installmentNumber: item.installmentNumber,
+                    installmentValue: Number(item.installmentValue),
+                    isPaid: false,
+                    commitmentDate: item.commitmentDate,
+                    paymentDate: null,
+                  })
+                )
+              : [],
+        });
 
       if (!response.isSuccess) {
         showResponseModal("warning", "No se pudo crear", response.Message || "No se pudo crear el préstamo.");
         return;
       }
 
-      navigate("/cuotas-prestamos/prestamos", { replace: true });
+      navigate("/cuotas-prestamos/prestamos", { replace: true, });
+
     } catch (err) {
       showResponseModal("error", "Error al crear préstamo", getErrorMessage(err));
     } finally {
       setSavingLoan(false);
     }
   };
+
+  useEffect(() => {
+    if (!loanForm.isLoan) {
+      return;
+    }
+
+    const plan = calculateInstallmentPlan(loanForm.loanAmount, loanForm.installmentValue);
+    const calculatedNumber = plan.numberInstallments > 0 ? String(plan.numberInstallments) : "";
+
+    setLoanForm(
+      (prev) => {
+        if (prev.numberInstallments === calculatedNumber) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          numberInstallments: calculatedNumber,
+        };
+      }
+    );
+
+  }, [
+    loanForm.isLoan,
+    loanForm.loanAmount,
+    loanForm.installmentValue,
+  ]);
 
   useEffect(() => {
 
@@ -650,6 +709,7 @@ export function CreateLoanPage() {
                   isLoan,
                   loanAmount: "",
                   serviceValue: "",
+                  installmentValue: "",
                   numberInstallments: "",
                   endDiscountDate: "",
                 }));
@@ -731,6 +791,8 @@ export function CreateLoanPage() {
                   IdDeductionPlan: selectedId,
                   deductionPlanName: selectedDeductionPlan?.nameDeductionPlan ?? "",
                 }));
+                setLoanInstallments([]);
+                setInstallmentDrafts([]);
               }}
               sx={{
                 "& .MuiInputBase-input": {
@@ -805,16 +867,23 @@ export function CreateLoanPage() {
               allowNegative={false}
               valueIsNumericString
               onValueChange={(values) => {
-                setLoanForm((prev) => ({
-                  ...prev,
-                  ...(prev.isLoan
-                    ? {
-                        loanAmount: values.value,
-                      }
-                    : {
-                        serviceValue: values.value,
-                      }),
-                }));
+                setLoanForm(
+                  (prev) => ({
+                    ...prev,
+                    ...(prev.isLoan
+                      ? {
+                          loanAmount: values.value,
+                        }
+                      : {
+                          serviceValue: values.value,
+                        }),
+                  })
+                );
+
+                if (loanForm.isLoan) {
+                  setLoanInstallments([]);
+                  setInstallmentDrafts([]);
+                }
               }}
               sx={{
                 "& .MuiInputBase-input": {
@@ -826,41 +895,38 @@ export function CreateLoanPage() {
               }}
             />
             {loanForm.isLoan && (
-              <TextField
-                label="Número de cuotas"
-                type="number"
-                value={loanForm.numberInstallments}
+              <NumericFormat
+                customInput={TextField}
+                label="Valor cuota"
+                value={ loanForm.installmentValue }
                 required
                 fullWidth
                 size="small"
                 disabled={savingLoan}
-                slotProps={{
-                  htmlInput: {
-                    step: "1",
-                    min: "1",
-                  },
-                }}
-                onChange={(event) => {
-                  setLoanForm((prev) => ({
-                    ...prev,
-                    numberInstallments:
-                      event.target.value,
-                  }));
+                thousandSeparator="."
+                decimalSeparator=","
+                decimalScale={2}
+                allowNegative={false}
+                valueIsNumericString
+                onValueChange={(values) => {
+                  setLoanForm(
+                    (prev) => ({
+                      ...prev,
+                      installmentValue: values.value,
+                    })
+                  );
                   setLoanInstallments([]);
                   setInstallmentDrafts([]);
                 }}
                 sx={{
-                  "& .MuiInputBase-input": {
-                    fontSize: 13,
-                  },
-                  "& .MuiInputLabel-root": {
-                    fontSize: 13,
-                  },
+                  "& .MuiInputBase-input": { fontSize: 13, },
+                  "& .MuiInputLabel-root": { fontSize: 13, },
                 }}
               />
             )}
+            {loanForm.isLoan && ( <TextField label="Número de cuotas" value={ loanForm.numberInstallments } fullWidth size="small" disabled sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, }, }} /> )}
             <TextField label="Fecha solicitud" type="date" value={loanForm.requestDate} required fullWidth size="small" disabled={savingLoan} slotProps={{ inputLabel: { shrink: true, },}} onChange={(event) => setLoanForm((prev) => ({ ...prev, requestDate: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
-            <TextField label="Inicio descuento" type="date" value={loanForm.startDiscountDate} required fullWidth size="small" disabled={savingLoan} slotProps={{ inputLabel: { shrink: true, },}} onChange={(event) => setLoanForm((prev) => ({ ...prev, startDiscountDate: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
+            <TextField label="Inicio descuento" type="date" value={loanForm.startDiscountDate} required fullWidth size="small" disabled={savingLoan} slotProps={{ inputLabel: { shrink: true, },}} onChange={(event) => { setLoanForm((prev) => ({ ...prev, startDiscountDate: event.target.value, })); setLoanInstallments([]); setInstallmentDrafts([]); }} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
             {loanForm.isLoan && ( <TextField label="Fin descuento" type="date" value={loanForm.endDiscountDate} fullWidth size="small" disabled slotProps={{ inputLabel: { shrink: true, },}} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}}/> )}
             <TextField label="Documento de cruce" value={loanForm.crossDocument} fullWidth size="small" disabled={savingLoan} onChange={(event) => setLoanForm((prev) => ({ ...prev, crossDocument: event.target.value, }))} sx={{ "& .MuiInputBase-input": { fontSize: 13, }, "& .MuiInputLabel-root": { fontSize: 13, },}} />
             {loanForm.isLoan && (  
@@ -884,79 +950,59 @@ export function CreateLoanPage() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {installmentDrafts.map((item, index) => (
-              <Stack key={item.installmentNumber} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <TextField
-                  label={`Fecha cuota ${item.installmentNumber}`}
-                  type="date"
-                  value={item.commitmentDate}
-                  disabled
-                  fullWidth
-                  size="small"
-                  slotProps={{
-                    inputLabel: {
-                      shrink: true,
-                    },
-                  }}
-                  sx={{
-                    "& .MuiInputBase-input": { fontSize: 13 },
-                    "& .MuiInputLabel-root": { fontSize: 13 },
-                  }}
-                />
-                <NumericFormat
-                  customInput={TextField}
-                  label={`Valor cuota ${item.installmentNumber}`}
-                  value={item.installmentValue}
-                  fullWidth
-                  size="small"
-                  thousandSeparator="."
-                  decimalSeparator=","
-                  decimalScale={2}
-                  allowNegative={false}
-                  valueIsNumericString
-                  onValueChange={(values) => {
-                    setInstallmentDrafts((prev) =>
-                      prev.map((installment) =>
-                        installment.installmentNumber ===
-                        item.installmentNumber
-                          ? {
-                              ...installment,
-                              installmentValue: values.value,
-                            }
-                          : installment
-                      )
-                    );
-                  }}
-                  sx={{
-                    "& .MuiInputBase-input": {
-                      fontSize: 13,
-                    },
-                    "& .MuiInputLabel-root": {
-                      fontSize: 13,
-                    },
-                  }}
-                />
-                {index === 0 && (
-                  <Tooltip title="Replicar valor en todas las cuotas" arrow>
-                    <IconButton
-                      onClick={replicateFirstInstallmentValue}
-                      sx={{
-                        p: 0,
-                        minWidth: "auto",
-                        color: "#4B2E1F",
-                        backgroundColor: "transparent",
-                        "&:hover": {
-                          backgroundColor: "transparent",
-                          color: "#3A2318",
-                        },
-                      }}
-                    >
-                      <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 34 }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
-            ))}
+            {installmentDrafts.map(
+              (item) => (
+                <Stack key={ item.installmentNumber } direction="row" spacing={1} sx={{ alignItems: "center", }}>
+                  <TextField
+                    label={ `Fecha cuota ${item.installmentNumber}` }
+                    type="date"
+                    value={ item.commitmentDate }
+                    disabled
+                    fullWidth
+                    size="small"
+                    slotProps={{
+                      inputLabel: { shrink: true, },
+                    }}
+                    sx={{
+                      "& .MuiInputBase-input": { fontSize: 13, },
+                      "& .MuiInputLabel-root": { fontSize: 13, },
+                    }}
+                  />
+                  <NumericFormat
+                    customInput={ TextField }
+                    label={ `Valor cuota ${item.installmentNumber}` }
+                    value={ item.installmentValue }
+                    fullWidth
+                    size="small"
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    decimalScale={2}
+                    allowNegative={false}
+                    valueIsNumericString
+                    onValueChange={
+                      (values) => {
+                        setInstallmentDrafts(
+                          (prev) =>
+                            prev.map(
+                              (installment) =>
+                                installment.installmentNumber === item.installmentNumber
+                                  ? {
+                                      ...installment,
+                                      installmentValue: values.value,
+                                    }
+                                  : installment
+                            )
+                        );
+                      }
+                    }
+                    sx={{
+                      "& .MuiInputBase-input": { fontSize: 13, },
+                      "& .MuiInputLabel-root": { fontSize: 13, },
+                    }}
+                  />
+                </Stack>
+              )
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
