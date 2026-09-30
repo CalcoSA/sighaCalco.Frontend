@@ -62,7 +62,7 @@ const loanItems: MenuItem[] = [
     icon: <PriceCheckOutlinedIcon />,
   },
   {
-    label: "Consolidación",
+    label: "Conciliación",
     path: "/cuotas-prestamos/consolidacion",
     icon: <SummarizeOutlinedIcon />,
   },
