@@ -9,10 +9,12 @@ export interface LoanReconciliationItem {
   fileDocumentNumber: string | null;
   fileFullName: string | null;
   fileAmount: number | null;
+  fileConceptName: string | null;
   IdLoan: number | null;
   isLoan: boolean | null;
   sighaDocumentNumber: string | null;
   sighaFullName: string | null;
+  IdConcept: number | null;
   conceptName: string | null;
   lastDiscountDate: string | null;
   sighaAmount: number | null;

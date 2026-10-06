@@ -1,5 +1,6 @@
 import type { LoanQuery, Loan, LoanReportQuery, LoanReport,  LoanCreate, LoanUpdate, LoanEdit, ServiceValueUpdate } from "../models/Loan";
 import type { LoanReconciliationResult } from "../models/LoanReconciliation";
+import type { LoanExport, LoanExportQuery, } from "../models/LoanExport";
 import type { PaginatedResult } from "../components/common/Pagination";
 import type { LoanScheduled } from "../models/LoanScheduled";
 import type { ApiResponse } from "../models/ApiResponse";
@@ -15,11 +16,27 @@ export const loanService = {
           pageSize: query.pageSize,
           employeeDocumentNumber: query.employeeDocumentNumber || undefined,
           IdLoanStatus: query.IdLoanStatus || undefined,
+          IdConcept: query.IdConcept || undefined,
           requestDateFrom: query.requestDateFrom || undefined,
           requestDateTo: query.requestDateTo || undefined,
         },
       }
     );
+    return response.data;
+  },
+
+  async getAllForExport(query: LoanExportQuery): Promise<ApiResponse<LoanExport[]>> {
+    const response = await loansApiClient.get<ApiResponse<LoanExport[]>>("/loans/loan/export",
+        {
+          params: {
+            employeeDocumentNumber: query.employeeDocumentNumber || undefined,
+            IdLoanStatus: query.IdLoanStatus || undefined,
+            IdConcept: query.IdConcept || undefined,
+            requestDateFrom: query.requestDateFrom || undefined,
+            requestDateTo: query.requestDateTo || undefined,
+          },
+        }
+      );
     return response.data;
   },
 
