@@ -4,6 +4,7 @@ import type { PaginationQuery } from "../components/common/Pagination";
 export interface LoanQuery extends PaginationQuery {
   employeeDocumentNumber?: string;
   IdLoanStatus?: number;
+  IdConcept?: number;
   requestDateFrom?: string;
   requestDateTo?: string;
 }
@@ -99,6 +100,8 @@ export interface LoanReport {
 export interface LoanEdit {
   loanAmount: number;
   numberInstallments: number;
+  IdDeductionPlan: number;
+  deductionPlanName: string;
   endDiscountDate: string | null;
   observation: string | null;
   updatedByUserName: string;

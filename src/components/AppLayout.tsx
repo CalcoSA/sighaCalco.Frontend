@@ -98,9 +98,9 @@ export function AppLayout() {
   return (
     <Box sx={{ height: "100vh", width: "100%", bgcolor: "#FFFDF8", display: "grid", gridTemplateColumns: `${ sidebarOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_CLOSED_WIDTH }px 1fr`, transition: "grid-template-columns 0.25s ease", overflow: "hidden", }}>
       <Sidebar sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
-      <Box sx={{ height: "100vh", display: "grid", gridTemplateRows: "86px minmax(0, 1fr) 95px", minWidth: 0, overflow: "hidden", }}>
+      <Box sx={{ height: "100vh", display: "grid", gridTemplateRows: { xs: "auto minmax(0, 1fr) auto", md: "86px minmax(0, 1fr) 95px", }, minWidth: 0, overflow: "hidden", }}>
         <Header />
-        <Box component="main" sx={{ bgcolor: "#FFFDF8", p: 4, overflowY: "auto", overflowX: "hidden", minHeight: 0, }}>
+        <Box component="main" sx={{ bgcolor: "#FFFDF8", p: { xs: 2, sm: 3, md: 4, }, overflowY: "auto", overflowX: "hidden", minHeight: 0, }}>
           <Outlet />
         </Box>
         <Footer />
@@ -327,17 +327,17 @@ function Header() {
   const navigate = useNavigate();
   const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 
-  return(
-    <Box sx={{ bgcolor: "#F7E8D8", borderBottom: "1px solid #C9A98E", px: 5, display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 86, overflow: "hidden", }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0, }}>
-        <CoffeeIcon sx={{ fontSize: 42, color: "#4B2E1F", flexShrink: 0, }}/>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", }}>
+  return (
+    <Box sx={{ bgcolor: "#F7E8D8", borderBottom: "1px solid #C9A98E", px: { xs: 2, sm: 3, md: 5, }, py: { xs: 1.5, md: 0, }, display: "flex", flexDirection: { xs: "column", sm: "row", }, alignItems: { xs: "stretch", sm: "center", }, justifyContent: "space-between", gap: { xs: 1.5, sm: 2, }, minHeight: { xs: "auto", md: 86, }, overflow: "hidden", }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 1.5, md: 2, }, minWidth: 0, }}>
+        <CoffeeIcon sx={{ fontSize: { xs: 30, sm: 36, md: 42, }, color: "#4B2E1F", flexShrink: 0, }} />
+        <Box sx={{ minWidth: 0, }}>
+          <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700, fontSize: { xs: 16, sm: 18, md: 20, }, lineHeight: 1.2, whiteSpace: { xs: "normal", sm: "nowrap", }, overflow: "hidden", textOverflow: "ellipsis", }}>
             BIENVENIDO A SIGHA CALCO S.A
           </Typography>
         </Box>
       </Box>
-      <Button variant="outlined" startIcon={<LogoutIcon />} onClick={handleLogout} sx={{ borderColor: "#8B6A55", color: "#4B2E1F", bgcolor: "rgba(255,255,255,0.35)", px: 2, py: 1, flexShrink: 0, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(255,255,255,0.55)", },}}>
+      <Button variant="outlined" startIcon={ <LogoutIcon /> } onClick={ handleLogout } sx={{ borderColor: "#8B6A55", color: "#4B2E1F", bgcolor: "rgba(255,255,255,0.35)", width: { xs: "100%", sm: "auto", }, px: 2, py: 1, flexShrink: 0, textTransform: "none", fontWeight: 600, "&:hover": { borderColor: "#4B2E1F", bgcolor: "rgba(255,255,255,0.55)", }, }}>
         Cerrar Sesión
       </Button>
     </Box>
@@ -365,33 +365,35 @@ function Footer() {
     setHelpOpen(false);
   };
     
-  return(
+  return (
     <>
-      <Box sx={{ bgcolor: "#4B2E1F", color: "#F7E8D8", px: 5, display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", columnGap: 4, minHeight: 95, overflow: "hidden", }}>
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5, minWidth: 0, }}>
-          <Typography sx={{ fontSize: 15, mt: 1, textAlign: "center", }}>
-            © Compañía de Alimentos Colombianos Calco S.A - Todos los derechos reservados
-          </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2.5, }}>
-            <IconButton component="a" href="https://web.facebook.com/CrepesyWafflesOficial/" target="_blank" rel="noopener noreferrer" aria-label="Ir a FacebookIcon" sx={{ color: "#F7E8D8" }}>
+      <Box sx={{ bgcolor: "#4B2E1F", color: "#F7E8D8", px: { xs: 2, sm: 3, md: 5, }, py: { xs: 1.5, md: 1, }, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: { xs: 1, md: 1.5, }, minHeight: { xs: "auto", md: 95, }, overflow: "hidden", }}>
+        <Typography sx={{ fontSize: { xs: 12, sm: 13, md: 15, }, textAlign: "center", lineHeight: 1.4, }}>
+          © Compañía de Alimentos Colombianos Calco S.A - Todos los derechos reservados
+        </Typography>
+        <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row", }, alignItems: "center", justifyContent: "center", gap: { xs: 1, sm: 2, md: 2.5, }, width: "100%", }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, }}>
+            <IconButton component="a" href="https://web.facebook.com/CrepesyWafflesOficial/" target="_blank" rel="noopener noreferrer" aria-label="Ir a Facebook" sx={{ color: "#F7E8D8", p: { xs: 0.5, md: 1, }, }}>
               <FacebookIcon />
             </IconButton>
-            <IconButton component="a" href="https://www.instagram.com/crepesywaffles/" target="_blank" rel="noopener noreferrer" aria-label="Ir a Instagram" sx={{ color: "#F7E8D8" }}>
+            <IconButton component="a" href="https://www.instagram.com/crepesywaffles/" target="_blank" rel="noopener noreferrer" aria-label="Ir a Instagram" sx={{ color: "#F7E8D8", p: { xs: 0.5, md: 1, },}}>
               <InstagramIcon />
             </IconButton>
-            <IconButton component="a" href="https://calcoweb.net/" target="_blank" rel="noopener noreferrer" aria-label="Ir a CalcoWeb" sx={{ color: "#F7E8D8" }}>
+            <IconButton component="a" href="https://calcoweb.net/" target="_blank" rel="noopener noreferrer" aria-label="Ir a CalcoWeb" sx={{ color: "#F7E8D8", p: { xs: 0.5, md: 1, },}}>
               <LanguageIcon />
             </IconButton>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(247,232,216,0.35)" }}/>
-            <Typography onClick={handleOpenTerms} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: "pointer", }}>
+          </Box>
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block", }, borderColor:"rgba(247,232,216,0.35)", }} />
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: { xs: 1.5, sm: 2, },}}>
+            <Typography onClick={ handleOpenTerms } sx={{ fontSize: { xs: 12, md: 14, }, whiteSpace: "nowrap", cursor: "pointer", }}>
               Términos y condiciones
             </Typography>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(247,232,216,0.35)" }}/>
-            <Typography onClick={handleOpenPrivacy} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: "pointer", }}>
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block", }, borderColor:"rgba(247,232,216,0.35)", }} />
+            <Typography onClick={ handleOpenPrivacy } sx={{ fontSize: { xs: 12, md: 14, }, whiteSpace: "nowrap", cursor: "pointer", }}>
               Privacidad
             </Typography>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(247,232,216,0.35)" }}/>
-            <Typography onClick={handleOpenHelp} sx={{ fontSize: 14, whiteSpace: "nowrap", cursor: "pointer", }}>
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block", }, borderColor:"rgba(247,232,216,0.35)", }} />
+            <Typography onClick={ handleOpenHelp } sx={{ fontSize: { xs: 12, md: 14, }, whiteSpace: "nowrap", cursor: "pointer", }}>
               Ayuda
             </Typography>
           </Box>

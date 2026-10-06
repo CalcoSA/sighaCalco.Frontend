@@ -3,6 +3,7 @@ import type { LoanReconciliationResult, LoanReconciliationStatus } from "../mode
 import type { ResponseModalSeverity, ResponseModalState } from "../components/common/ModalType";
 import PlayCircleOutlineOutlinedIcon from "@mui/icons-material/PlayCircleOutlineOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import { ResponseModal } from "../components/ResponseModal";
@@ -10,6 +11,7 @@ import { getErrorMessage } from "../services/errorService";
 import { loanService } from "../services/loanService";
 import type { ChangeEvent } from "react";
 import { useRef, useState } from "react";
+import ExcelJS from "exceljs";
 
 interface SummaryCardProps {
   label: string;
@@ -41,6 +43,7 @@ export function ConsolidationPage() {
   const [result, setResult] = useState<LoanReconciliationResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const showResponseModal = (severity: ResponseModalSeverity, title: string, message: string) => {
@@ -176,13 +179,283 @@ export function ConsolidationPage() {
     );
   };
 
+  const getStatusText = (status: LoanReconciliationStatus) => {
+    switch (status) {
+      case "IGUAL":
+        return "Igual";
+
+      case "DIFERENTE":
+        return "Diferente";
+
+      case "NO_EN_ARCHIVO":
+        return "No está en archivo";
+
+      case "NO_EN_SIGHA":
+        return "No está en SIGHA";
+
+      default:
+        return "";
+    }
+  };
+
+  const handleExportExcel = async () => {
+
+    if (!result || result.total === 0) {
+      showResponseModal("warning", "Sin información", "Debe realizar primero una conciliación antes de exportar.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Conciliación");
+
+      worksheet.columns = [
+        {
+          header: "Documento archivo",
+          key: "fileDocumentNumber",
+          width: 20,
+        },
+        {
+          header: "Nombre archivo",
+          key: "fileFullName",
+          width: 32,
+        },
+        {
+          header: "Concepto archivo",
+          key: "fileConceptName",
+          width: 35,
+        },
+        {
+          header: "Cuota archivo",
+          key: "fileAmount",
+          width: 18,
+        },
+        {
+          header: "Documento SIGHA",
+          key: "sighaDocumentNumber",
+          width: 20,
+        },
+        {
+          header: "Nombre SIGHA",
+          key: "sighaFullName",
+          width: 32,
+        },
+        {
+          header: "Tipo",
+          key: "type",
+          width: 15,
+        },
+        {
+          header: "Concepto SIGHA",
+          key: "sighaConcept",
+          width: 40,
+        },
+        {
+          header: "Último descuento",
+          key: "lastDiscountDate",
+          width: 20,
+        },
+        {
+          header: "Cuota SIGHA",
+          key: "sighaAmount",
+          width: 18,
+        },
+
+        {
+          header: "Estado",
+          key: "status",
+          width: 22,
+        },
+        {
+          header: "Diferencia",
+          key: "difference",
+          width: 18,
+        },
+      ];
+
+      result.groups.forEach(
+        (group) => {
+
+          group.items.forEach(
+            (item) => {
+
+              worksheet.addRow({
+                fileDocumentNumber: item.fileDocumentNumber ?? "",
+                fileFullName: item.fileFullName ?? "",
+                fileConceptName: item.fileConceptName ?? "",
+                fileAmount: item.fileAmount !== null ? Number(item.fileAmount) : null,
+                sighaDocumentNumber: item.sighaDocumentNumber ?? "",
+                sighaFullName: item.sighaFullName ?? "",
+                type: item.isLoan === null ? "" : item.isLoan ? "Préstamo" : "Emolumento",
+                sighaConcept: item.IdConcept !== null && item.conceptName ? `${item.IdConcept} - ${item.conceptName}` : item.conceptName ?? "",
+                lastDiscountDate: item.lastDiscountDate ? formatDate(item.lastDiscountDate) : "",
+                sighaAmount: item.sighaAmount !== null ? Number(item.sighaAmount) : null,
+                status: getStatusText(item.status),
+                difference: item.difference !== null ? Number(item.difference) : null,
+              });
+            }
+          );
+        }
+      );
+
+      const headerRow = worksheet.getRow(1);
+
+      headerRow.height = 28;
+
+      headerRow.eachCell(
+        (cell) => {
+
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: {
+              argb: "4B2E1F",
+            },
+          };
+
+          cell.font = {
+            bold: true,
+            color: {
+              argb: "FFFFFF",
+            },
+          };
+
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+            wrapText: true,
+          };
+        }
+      );
+
+      worksheet.eachRow(
+        {
+          includeEmpty: false,
+        },
+        (row, rowNumber) => {
+
+          if (rowNumber === 1) {
+            return;
+          }
+
+          row.eachCell(
+            {
+              includeEmpty: true,
+            },
+            (cell) => {
+
+              cell.alignment = {
+                vertical: "middle",
+              };
+
+              cell.border = {
+                bottom: {
+                  style: "thin",
+                  color: {
+                    argb: "E0CDBB",
+                  },
+                },
+              };
+            }
+          );
+        }
+      );
+
+      worksheet.getColumn("fileDocumentNumber").numFmt = "@";
+      worksheet.getColumn("sighaDocumentNumber").numFmt = "@";
+      worksheet.getColumn("fileAmount").numFmt = "#,##0.##";
+      worksheet.getColumn("sighaAmount").numFmt = "#,##0.##";
+      worksheet.getColumn("difference").numFmt = "#,##0.##";
+
+      worksheet.autoFilter = {
+        from: "A1",
+        to: "L1",
+      };
+
+      worksheet.views = [
+        {
+          state: "frozen",
+          ySplit: 1,
+        },
+      ];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob(
+        [
+          buffer as BlobPart,
+        ],
+        {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const today = new Date();
+
+      const fileDate = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, "0"),
+        String(today.getDate()).padStart(2, "0"),
+      ].join("-");
+
+      link.href = url;
+      link.download = `conciliacion_${fileDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+    } catch (err) {
+      showResponseModal("error", "Error al exportar", getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Box>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 3, }}>
-        <SummarizeOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, }} />
-        <Typography sx={{ color: "#4B2E1F", fontSize: 26, fontWeight: 700, }}>
-          Conciliación
-        </Typography>
+      <Stack sx={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 3, }}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0, }}>
+          <SummarizeOutlinedIcon sx={{ color: "#4B2E1F", fontSize: 30, flexShrink: 0, }} />
+          <Typography sx={{ color: "#4B2E1F", fontSize: { xs: 22, sm: 26, }, fontWeight: 700, }}>
+            Conciliación
+          </Typography>
+        </Stack>
+        <Button
+          variant="outlined"
+          startIcon={
+            exporting
+              ? (
+                <CircularProgress size={16} />
+              )
+              : (
+                <FileDownloadOutlinedIcon />
+              )
+          }
+          onClick={
+            handleExportExcel
+          }
+          disabled={ loading || exporting || !result || result.total === 0 }
+          sx={{
+            height: 40,
+            borderColor: "#8B6A55",
+            color: "#4B2E1F",
+            textTransform: "none",
+            fontWeight: 600,
+            flexShrink: 0,
+            minWidth: { xs: 44, sm: 120, },
+            "&:hover": {
+              borderColor: "#4B2E1F",
+              bgcolor: "rgba(75, 46, 31, 0.05)",
+            },
+          }}
+        >
+          {exporting ? "Exportando..." : "Exportar"}
+        </Button>
       </Stack>
       <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E0CDBB", borderRadius: 2, }}>
         <Typography sx={{ color: "#4B2E1F", fontSize: 18, fontWeight: 700, mb: 2, }}>
@@ -348,7 +621,7 @@ export function ConsolidationPage() {
                   <Table sx={{ minWidth: 1450, }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell colSpan={3} align="center" sx={{ bgcolor:"#FBEFE3", color: "#4B2E1F", fontWeight: 700, borderRight: "2px solid #E0CDBB", }}>
+                        <TableCell colSpan={4} align="center" sx={{ bgcolor:"#FBEFE3", color: "#4B2E1F", fontWeight: 700, borderRight: "2px solid #E0CDBB", }}>
                           ARCHIVO
                         </TableCell>
                         <TableCell colSpan={6} align="center" sx={{ bgcolor: "#EFE5DB", color: "#4B2E1F", fontWeight: 700, borderRight: "2px solid #E0CDBB", }}>
@@ -364,6 +637,9 @@ export function ConsolidationPage() {
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, color: "#4B2E1F", }}>
                           Nombre
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: "#4B2E1F", }}>
+                          Concepto
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: "#4B2E1F", borderRight: "2px solid #E0CDBB", }}>
                           Cuota
@@ -404,6 +680,9 @@ export function ConsolidationPage() {
                             <TableCell>
                               { item.fileFullName ?? "" }
                             </TableCell>
+                            <TableCell>
+                              {item.fileConceptName ?? ""}
+                            </TableCell>
                             <TableCell align="right" sx={{ borderRight: "2px solid #E0CDBB", }}>
                               { formatMoney(item.fileAmount) }
                             </TableCell>
@@ -443,7 +722,7 @@ export function ConsolidationPage() {
                               }
                             </TableCell>
                             <TableCell>
-                              { item.conceptName ?? "" }
+                              { item.IdConcept !== null && item.conceptName ? `${item.IdConcept} - ${item.conceptName}` : item.conceptName ?? "" }
                             </TableCell>
                             <TableCell>
                               { formatDate(item.lastDiscountDate) }
