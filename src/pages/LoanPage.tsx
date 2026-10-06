@@ -1,14 +1,17 @@
-import { Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, } from "@mui/material";
+import { Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, } from "@mui/material";
 import type { ResponseModalSeverity, ResponseModalState, } from "../components/common/ModalType";
 import { serviceDiscountHistoryService } from "../services/serviceDiscountHistoryService";
 import PlayCircleOutlineOutlinedIcon from "@mui/icons-material/PlayCircleOutlineOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
 import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
 import { loanStatusHistoryService } from "../services/loanStatusHistoryService";
 import type { ServiceDiscountHistory } from "../models/ServiceDiscountHistory";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
+import { payrollSinergyService } from "../services/payrollSinergyService";
+import { deductionPlanService } from "../services/deductionPlanService";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import type { LoanStatusHistory } from "../models/LoanStatusHistory";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
@@ -16,6 +19,8 @@ import { loanStatusService } from "../services/loanStatusService";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import type { PayrollSinergy } from "../models/PayrollSinergy";
+import type { DeductionPlan } from "../models/DeductionPlan";
 import { ResponseModal } from "../components/ResponseModal";
 import { getErrorMessage } from "../services/errorService";
 import type { LoanStatus } from "../models/LoanStatus";
@@ -24,10 +29,12 @@ import { NumericFormat } from "react-number-format";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import type { Loan } from "../models/Loan";
+import ExcelJS from "exceljs";
 
 interface LoanFilters {
   employeeDocumentNumber: string;
   IdLoanStatus: number;
+  IdConcept: number;
   requestDateFrom: string;
   requestDateTo: string;
 }
@@ -35,6 +42,7 @@ interface LoanFilters {
 const emptyFilters: LoanFilters = {
   employeeDocumentNumber: "",
   IdLoanStatus: 0,
+  IdConcept: 0,
   requestDateFrom: "",
   requestDateTo: "",
 };
@@ -71,14 +79,20 @@ export function LoanPage() {
   const [pendingInstallmentsEdit, setPendingInstallmentsEdit] = useState<LoanInstallmentEditForm[]>([]);
   const [responseModal, setResponseModal] = useState<ResponseModalState>(emptyResponseModal);
   const [loanStatusHistories, setLoanStatusHistories] = useState<LoanStatusHistory[]>([]);
+  const [selectedPayroll, setSelectedPayroll] = useState<PayrollSinergy | null>(null);
+  const [appliedFilters, setAppliedFilters,] = useState<LoanFilters>(emptyFilters);
   const [loanNumberInstallmentsEdit, setLoanNumberInstallmentsEdit] = useState("");
+  const [allDeductionPlans, setAllDeductionPlans] = useState<DeductionPlan[]>([]);
   const [loadingServiceDiscounts, setLoadingServiceDiscounts] = useState(false);
+    const [loanDeductionPlanIdEdit, setLoanDeductionPlanIdEdit,] = useState(0);
+  const [loadingDeductionPlans, setLoadingDeductionPlans,] = useState(false);
   const [serviceDiscountPageSize, setServiceDiscountPageSize] = useState(10);
   const [loanEndDiscountDateEdit, setLoanEndDiscountDateEdit] = useState("");
   const [serviceValueModalOpen, setServiceValueModalOpen] = useState(false);
   const [serviceToUpdate, setServiceToUpdate] = useState<Loan | null>(null);
   const [updatingServiceValue, setUpdatingServiceValue] = useState(false);
   const [processingScheduled, setProcessingScheduled] = useState(false);
+  const [allPayrolls, setAllPayrolls] = useState<PayrollSinergy[]>([]);
   const [allLoanStatus, setAllLoanStatus] = useState<LoanStatus[]>([]);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToUpdate, setLoanToUpdate] = useState<Loan | null>(null);
@@ -93,19 +107,21 @@ export function LoanPage() {
   const [statusObservation, setStatusObservation] = useState("");
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [loadingPayrolls, setLoadingPayrolls] = useState(false);
   const [selectedStatusId, setSelectedStatusId] = useState(0);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loanAmountEdit, setLoanAmountEdit] = useState("");
   const [updatingLoan, setUpdatingLoan] = useState(false);
   const [serviceValue, setServiceValue] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const { user } = useAuth();
-
+  
   const showResponseModal = (severity: ResponseModalSeverity, title: string, message: string) => {
     setResponseModal({
       open: true,
@@ -132,6 +148,19 @@ export function LoanPage() {
       showResponseModal("error", "Error al cargar estados", getErrorMessage(err));
     } finally {
       setLoadingStatus(false);
+    }
+  };
+
+  const loadPayrolls = async (search?: string) => {
+    try {
+      setLoadingPayrolls(true);
+      const response = await payrollSinergyService.getPayroll(search);
+      setAllPayrolls(response.result ?? []);
+    } catch (err) {
+      setAllPayrolls([]);
+      showResponseModal("error", "Error al cargar conceptos", getErrorMessage(err));
+    } finally {
+      setLoadingPayrolls(false);
     }
   };
 
@@ -193,6 +222,7 @@ export function LoanPage() {
     setLoanNumberInstallmentsEdit(loan.numberInstallments !== null ? String(loan.numberInstallments) : "");
     setLoanEndDiscountDateEdit(loan.endDiscountDate ?? "");
     setPendingInstallmentsEdit(pendingInstallments);
+    setLoanDeductionPlanIdEdit(loan.IdDeductionPlan);
     setLoanEditModalOpen(true);
     setLoanEditObservation("");
   };
@@ -208,6 +238,7 @@ export function LoanPage() {
     setLoanNumberInstallmentsEdit("");
     setLoanEndDiscountDateEdit("");
     setPendingInstallmentsEdit([]);
+    setLoanDeductionPlanIdEdit(0);
     setLoanEditObservation("");
   };
 
@@ -244,6 +275,7 @@ export function LoanPage() {
         pageSize: currentPageSize,
         employeeDocumentNumber: currentFilters.employeeDocumentNumber.trim(),
         IdLoanStatus: currentFilters.IdLoanStatus,
+        IdConcept: currentFilters.IdConcept,
         requestDateFrom: currentFilters.requestDateFrom,
         requestDateTo: currentFilters.requestDateTo,
       });
@@ -260,12 +292,18 @@ export function LoanPage() {
   };
 
   const handleSearch = () => {
+    const nextFilters = {
+      ...filters,
+    };
+    setAppliedFilters(nextFilters);
     setPage(1);
     loadLoans(1, pageSize, filters);
   };
 
   const handleClean = () => {
     setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSelectedPayroll(null);
     setPage(1);
     loadLoans(1, pageSize, emptyFilters);
   };
@@ -341,6 +379,146 @@ export function LoanPage() {
     });
   };
 
+  const loadAllDeductionPlans = async () => {
+    try {
+      setLoadingDeductionPlans(true);
+      const response = await deductionPlanService.getAll();
+      setAllDeductionPlans(response.result ?? []);
+    } catch (err) {
+      setAllDeductionPlans([]);
+      showResponseModal("error", "Error al cargar planes de descuento", getErrorMessage(err));
+    } finally {
+      setLoadingDeductionPlans(false);
+    }
+  };
+
+  const handleLoanDeductionPlanChange = (selectedId: number) => {
+    setLoanDeductionPlanIdEdit(selectedId);
+
+    if (!loanToEdit) {
+      return;
+    }
+
+    const selectedPlan = allDeductionPlans.find((item) => item.IdDeductionPlan === selectedId);
+
+    if (!selectedPlan) {
+      return;
+    }
+
+    setPendingInstallmentsEdit(
+      (previous) => {
+        const anchorDate =
+          previous.find(
+            (item) => item.commitmentDate
+          )?.commitmentDate
+          ?? loanToEdit.startDiscountDate;
+
+        const dates = calculateCommitmentDates(anchorDate, previous.length, selectedPlan.nameDeductionPlan);
+
+        if (dates.length > 0) {
+          setLoanEndDiscountDateEdit(dates[dates.length - 1]);
+        }
+
+        return previous.map(
+          (item, index) => ({
+            ...item,
+            commitmentDate:
+              dates[index]
+              ?? item.commitmentDate,
+          })
+        );
+      }
+    );
+  };
+
+  const calculateCommitmentDates = (startDate: string, numberInstallments: number, deductionPlanName: string): string[] => {
+
+    if (!startDate || numberInstallments <= 0) {
+      return [];
+    }
+
+    const [yearValue, monthValue, dayValue] = startDate.split("-").map(Number);
+
+    if (!yearValue || !monthValue || !dayValue) {
+      return [];
+    }
+
+    const plan = deductionPlanName.trim().toLowerCase();
+    const dates: string[] = [];
+
+    const formatDate = (year: number, month: number, day: number) => {
+      return [
+        year,
+        String(month).padStart(2, "0"),
+        String(day).padStart(2, "0"),
+      ].join("-");
+    };
+
+    const getLastDayOfMonth = (year: number, month: number) => {
+      return new Date(year, month, 0).getDate();
+    };
+
+    if (plan === "primera quincena") {
+      const firstMonthOffset = dayValue <= 15 ? 0 : 1;
+
+      for (let index = 0; index < numberInstallments; index++) {
+        const monthIndex = monthValue - 1 + firstMonthOffset + index;
+        const year = yearValue + Math.floor(monthIndex / 12);
+        const month = (monthIndex % 12) + 1;
+
+        dates.push(formatDate(year, month, 15));
+      }
+
+      return dates;
+    }
+
+    if (plan === "segunda quincena") {
+      for (let index = 0; index < numberInstallments; index++) {
+        const monthIndex = monthValue - 1 + index;
+        const year = yearValue + Math.floor(monthIndex / 12);
+        const month = (monthIndex % 12) + 1;
+        const lastDay = getLastDayOfMonth(year, month);
+
+        dates.push(formatDate(year, month, lastDay));
+      }
+
+      return dates;
+    }
+
+    if (plan === "ambas quincenas") {
+      let currentYear = yearValue;
+      let currentMonth = monthValue;
+
+      let isFirstFortnight = dayValue <= 15;
+
+      for (let index = 0; index < numberInstallments; index++) {
+
+        if (isFirstFortnight) {
+          dates.push(formatDate(currentYear, currentMonth, 15));
+          isFirstFortnight = false;
+
+        } else {
+
+          const lastDay = getLastDayOfMonth( currentYear, currentMonth);
+
+          dates.push(formatDate(currentYear, currentMonth, lastDay));
+
+          isFirstFortnight = true;
+          currentMonth++;
+
+          if (currentMonth > 12) {
+            currentMonth = 1;
+            currentYear++;
+          }
+        }
+      }
+
+      return dates;
+    }
+
+    return [];
+  };
+
   const handleUpdateLoan = async () => {
     if (!loanToEdit) {
       return;
@@ -382,6 +560,13 @@ export function LoanPage() {
       return;
     }
 
+    const selectedDeductionPlan = allDeductionPlans.find((item) => item.IdDeductionPlan === loanDeductionPlanIdEdit);
+
+    if (!selectedDeductionPlan) {
+      showResponseModal("warning", "Plan requerido", "Debe seleccionar un plan de descuento.");
+      return;
+    }
+
     try {
       setUpdatingLoan(true);
       const response = await loanService.updateLoan(
@@ -389,6 +574,8 @@ export function LoanPage() {
           {
             loanAmount,
             numberInstallments,
+            IdDeductionPlan: selectedDeductionPlan.IdDeductionPlan,
+            deductionPlanName: selectedDeductionPlan.nameDeductionPlan,
             endDiscountDate: loanEndDiscountDateEdit || null,
             updatedByUserName: user?.userLogin ?? "",
             observation: loanEditObservation.trim() || null,
@@ -545,8 +732,414 @@ export function LoanPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      const response =
+        await loanService
+          .getAllForExport({
+            employeeDocumentNumber: appliedFilters.employeeDocumentNumber.trim(),
+            IdLoanStatus: appliedFilters.IdLoanStatus,
+            IdConcept: appliedFilters.IdConcept,
+            requestDateFrom: appliedFilters.requestDateFrom,
+            requestDateTo: appliedFilters.requestDateTo,
+          });
+
+      const data = response.result ?? [];
+
+      if (!response.isSuccess || data.length === 0) {
+        showResponseModal("warning", "Sin registros", response.Message || "No existen registros para exportar.");
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Préstamos y emolumentos");
+
+      worksheet.columns = [
+        {
+          header: "Documento colaborador",
+          key: "employeeDocumentNumber", width: 22,
+        },
+
+        {
+          header: "Nombre completo",
+          key: "employeeFullName",
+          width: 34,
+        },
+
+        {
+          header: "Cargo",
+          key: "employeeRoleName",
+          width: 32,
+        },
+
+        {
+          header: "Centro de costo",
+          key: "employeeCostCenterName",
+          width: 24,
+        },
+
+        {
+          header: "Tipo",
+          key: "type",
+          width: 16,
+        },
+
+        {
+          header: "Documento de cruce",
+          key: "crossDocument",
+          width: 22,
+        },
+
+        {
+          header: "Concepto",
+          key: "conceptName",
+          width: 32,
+        },
+
+        {
+          header: "Plan de descuento",
+          key: "deductionPlanName",
+          width: 22,
+        },
+
+        {
+          header: "Estado",
+          key: "loanStatusName",
+          width: 16,
+        },
+
+        {
+          header: "Valor préstamo",
+          key: "loanAmount",
+          width: 18,
+        },
+
+        {
+          header: "Valor actual emolumento",
+          key: "serviceValue",
+          width: 22,
+        },
+
+        {
+          header: "Número de cuotas",
+          key: "numberInstallments",
+          width: 18,
+        },
+
+        {
+          header: "Cuotas pagadas",
+          key: "paidInstallments",
+          width: 18,
+        },
+
+        {
+          header: "Saldo restante",
+          key: "remainingAmount",
+          width: 18,
+        },
+
+        {
+          header: "Fecha solicitud",
+          key: "requestDate",
+          width: 18,
+        },
+
+        {
+          header: "Inicio descuento",
+          key: "startDiscountDate",
+          width: 18,
+        },
+
+        {
+          header: "Fin descuento",
+          key: "endDiscountDate",
+          width: 18,
+        },
+
+        {
+          header: "N.º cuota",
+          key: "installmentNumber",
+          width: 12,
+        },
+
+        {
+          header: "Valor cuota",
+          key: "installmentValue",
+          width: 18,
+        },
+
+        {
+          header: "Cuota pagada",
+          key: "isPaid",
+          width: 16,
+        },
+
+        {
+          header: "Fecha compromiso",
+          key: "commitmentDate",
+          width: 19,
+        },
+
+        {
+          header: "Fecha pago",
+          key: "paymentDate",
+          width: 18,
+        },
+
+        {
+          header: "Valor descuento emolumento",
+          key: "serviceDiscountValue",
+          width: 26,
+        },
+
+        {
+          header: "Fecha descuento emolumento",
+          key: "serviceDiscountDate",
+          width: 26,
+        },
+      ];
+
+      const toExcelDate = (
+        value: | string | null | undefined): Date | null => {
+
+        if (!value) {
+          return null;
+        }
+
+        const [ year, month, day, ] = value
+          .substring(0, 10)
+          .split("-")
+          .map(Number);
+
+        return new Date(year, month - 1, day);
+      };
+
+      const recordColors = new Map<number, boolean>();
+      let nextRecordIsCream = false;
+
+      data.forEach((item) => {
+
+        if (!recordColors.has(item.IdLoan)) {
+          recordColors.set(
+            item.IdLoan,
+            nextRecordIsCream
+          );
+
+          nextRecordIsCream = !nextRecordIsCream;
+        }
+
+        const row = worksheet.addRow({
+          employeeDocumentNumber: item.employeeDocumentNumber,
+          employeeFullName: item.employeeFullName,
+          employeeRoleName: item.employeeRoleName ?? "",
+          employeeCostCenterName: item.employeeCostCenterName ?? "",
+          type: item.isLoan ? "Préstamo" : "Emolumento",
+          crossDocument: item.crossDocument ?? "",
+          conceptName: item.conceptName,
+          deductionPlanName: item.deductionPlanName,
+          loanStatusName: item.loanStatusName,
+
+          loanAmount:
+            item.loanAmount !== null
+              ? Number(item.loanAmount)
+              : null,
+
+          serviceValue:
+            item.serviceValue !== null
+              ? Number(item.serviceValue)
+              : null,
+
+          numberInstallments: item.numberInstallments,
+          paidInstallments: item.paidInstallments,
+
+          remainingAmount:
+            item.remainingAmount !== null
+              ? Number(item.remainingAmount)
+              : null,
+
+          requestDate:
+            toExcelDate(item.requestDate),
+
+          startDiscountDate:
+            toExcelDate(item.startDiscountDate),
+
+          endDiscountDate:
+            toExcelDate(item.endDiscountDate),
+
+          installmentNumber:
+            item.installmentNumber,
+
+          installmentValue:
+            item.installmentValue !== null
+              ? Number(item.installmentValue)
+              : null,
+
+          isPaid:
+            item.isPaid === null
+              ? ""
+              : item.isPaid
+                ? "Sí"
+                : "No",
+
+          commitmentDate:
+            toExcelDate(item.commitmentDate),
+
+          paymentDate:
+            toExcelDate(item.paymentDate),
+
+          serviceDiscountValue:
+            item.serviceDiscountValue !== null
+              ? Number(item.serviceDiscountValue)
+              : null,
+
+          serviceDiscountDate:
+            toExcelDate(item.serviceDiscountDate),
+        });
+
+        const isCream =
+          recordColors.get(item.IdLoan) ?? false;
+
+        if (isCream) {
+
+          for (
+            let columnIndex = 1;
+            columnIndex <= worksheet.columns.length;
+            columnIndex++
+          ) {
+
+            row.getCell(columnIndex).fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: {
+                argb: "FFFFF8F2",
+              },
+            };
+          }
+        }
+      });
+
+      const headerRow = worksheet.getRow(1);
+
+      headerRow.height = 28;
+      headerRow.eachCell(
+        (cell) => {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "4B2E1F", },
+          };
+
+          cell.font = {
+            bold: true,
+            color: { argb: "FFFFFF", },
+          };
+
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+            wrapText: true,
+          };
+        }
+      );
+
+      worksheet.eachRow(
+        {
+          includeEmpty: false,
+        },
+        ( row, rowNumber) => {
+          if (rowNumber === 1) {
+            return;
+          }
+
+          row.eachCell(
+            {
+              includeEmpty: true,
+            },
+            (cell) => {
+              cell.alignment = {
+                vertical: "middle",
+              };
+              cell.border = {
+                bottom: {
+                  style: "thin",
+                  color: {
+                    argb: "E0CDBB",
+                  },
+                },
+              };
+            }
+          );
+        }
+      );
+
+      [
+        "J",
+        "K",
+        "N",
+        "S",
+        "W",
+      ].forEach(
+        (column) => {
+          worksheet.getColumn(column).numFmt = "#,##0.##";
+        }
+      );
+
+      [
+        "O",
+        "P",
+        "Q",
+        "U",
+        "V",
+        "X",
+      ].forEach(
+        (column) => {
+          worksheet.getColumn(column).numFmt = "dd/mm/yyyy";
+        }
+      );
+
+      worksheet.getColumn("A").numFmt = "@";
+      worksheet.getColumn("F").numFmt = "@";
+      worksheet.autoFilter = {
+        from: "A1",
+        to: "X1",
+      };
+      worksheet.views = [
+        {
+          state: "frozen",
+          ySplit: 1,
+        },
+      ];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const today = new Date();
+      const fileDate =
+        [
+          today.getFullYear(),
+          String(today.getMonth() + 1).padStart(2, "0"),
+          String(today.getDate()).padStart(2, "0"),].join("-");
+
+      link.href = url;
+      link.download = `prestamos_emolumentos_${fileDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showResponseModal("error", "Error al exportar", getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     loadAllLoanStatus();
+    loadAllDeductionPlans();
+    loadPayrolls();
     loadLoans(1, pageSize, emptyFilters);
   }, []);
 
@@ -559,39 +1152,84 @@ export function LoanPage() {
             Préstamos
           </Typography>
         </Stack>
-        <Button
-          variant="outlined"
-          startIcon={
-            processingScheduled ? (
-              <CircularProgress size={16} />
-            ) : (
-              <PlayCircleOutlineOutlinedIcon />
-            )
-          }
-          onClick={handleProcessScheduled}
-          disabled={processingScheduled || loading}
-          sx={{
-            width: { xs: "100%", md: "auto" },
-            height: 40,
-            borderColor: "#8B6A55",
-            color: "#4B2E1F",
-            textTransform: "none",
-            fontWeight: 600,
-            "&:hover": {
-              borderColor: "#4B2E1F",
-              bgcolor: "rgba(75, 46, 31, 0.05)",
-            },
-          }}
-        >
-          { processingScheduled ? "Ejecutando..." : "Ejecutar descuentos" }
-        </Button>
+        <Stack direction={{ xs: "column", sm: "row", }} spacing={1} sx={{ width: { xs: "100%", md: "auto", },}}>
+          <Button
+            variant="outlined"
+            startIcon={
+              exporting
+                ? (
+                  <CircularProgress size={16} />
+                )
+                : (
+                  <FileDownloadOutlinedIcon />
+                )
+            }
+            onClick={
+              handleExportExcel
+            }
+            disabled={ exporting || loading }
+            sx={{
+              width: {
+                xs: "100%",
+                md: "auto",
+              },
+              height: 40,
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": {
+                borderColor: "#4B2E1F",
+                bgcolor: "rgba(75, 46, 31, 0.05)",
+              },
+            }}
+          >
+            {exporting ? "Exportando..." : "Exportar"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={
+              processingScheduled
+                ? (
+                  <CircularProgress size={16} />
+                )
+                : (
+                  <PlayCircleOutlineOutlinedIcon />
+                )
+            }
+            onClick={
+              handleProcessScheduled
+            }
+            disabled={
+              processingScheduled
+              || loading
+            }
+            sx={{
+              width: {
+                xs: "100%",
+                md: "auto",
+              },
+              height: 40,
+              borderColor: "#8B6A55",
+              color: "#4B2E1F",
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": {
+                borderColor: "#4B2E1F",
+                bgcolor: "rgba(75, 46, 31, 0.05)",
+              },
+            }}
+          >
+            {processingScheduled ? "Ejecutando..." : "Ejecutar descuentos"}
+          </Button>
+        </Stack>
       </Stack>
       <Paper elevation={0} sx={{ border: "1px solid #E0CDBB", borderRadius: 2, p: 3, }}>
         <Stack spacing={2.5}>
           <Typography sx={{ color: "#4B2E1F", fontSize: 18, fontWeight: 700, }}>
             Filtros de búsqueda
           </Typography>
-          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(4, minmax(0, 1fr))", }, gap: 1.5, alignItems: "center", }}>
+          <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))", }, gap: 1.5, alignItems: "center", }}>
             <TextField
               label="Documento colaborador"
               value={filters.employeeDocumentNumber}
@@ -601,14 +1239,19 @@ export function LoanPage() {
               onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  employeeDocumentNumber: event.target.value,
+                  employeeDocumentNumber:
+                    event.target.value,
                 }))
               }
               slotProps={{
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <PersonSearchOutlinedIcon sx={{ color: "#8B6A55" }} />
+                      <PersonSearchOutlinedIcon
+                        sx={{
+                          color: "#8B6A55",
+                        }}
+                      />
                     </InputAdornment>
                   ),
                 },
@@ -620,15 +1263,21 @@ export function LoanPage() {
               value={filters.IdLoanStatus}
               fullWidth
               size="small"
-              disabled={loading || loadingStatus}
+              disabled={
+                loading ||
+                loadingStatus
+              }
               onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  IdLoanStatus: Number(event.target.value),
+                  IdLoanStatus:
+                    Number(event.target.value),
                 }))
               }
             >
-              <MenuItem value={0}>Todos</MenuItem>
+              <MenuItem value={0}>
+                Todos
+              </MenuItem>
 
               {allLoanStatus.map((item) => (
                 <MenuItem key={item.IdLoanStatus} value={item.IdLoanStatus}>
@@ -636,6 +1285,44 @@ export function LoanPage() {
                 </MenuItem>
               ))}
             </TextField>
+            <Autocomplete
+              value={selectedPayroll}
+              options={allPayrolls}
+              loading={loadingPayrolls}
+              filterOptions={(options) => options}
+              getOptionLabel={(option) => {
+                const code = option.codePayrollSinergy ?? "";
+                const name = option.namePayrollSinergy ?? "";
+                return code
+                  ? `${code} - ${name}`
+                  : name;
+              }}
+              isOptionEqualToValue={(option, value) =>
+                option.IdPayrollSinergy === value.IdPayrollSinergy
+              }
+              onInputChange={(_, value, reason) => {
+                if (reason === "input") {
+                  void loadPayrolls(value);
+                }
+              }}
+              onChange={(_, value) => {
+                setSelectedPayroll(value);
+                setFilters((prev) => ({
+                  ...prev,
+                  IdConcept:
+                    value?.IdPayrollSinergy ?? 0,
+                }));
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Concepto"
+                  fullWidth
+                  size="small"
+                  disabled={loading}
+                />
+              )}
+            />
             <TextField
               label="Fecha solicitud desde"
               type="date"
@@ -651,7 +1338,8 @@ export function LoanPage() {
               onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  requestDateFrom: event.target.value,
+                  requestDateFrom:
+                    event.target.value,
                 }))
               }
             />
@@ -670,20 +1358,23 @@ export function LoanPage() {
               onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  requestDateTo: event.target.value,
+                  requestDateTo:
+                    event.target.value,
                 }))
               }
             />
-            <Stack sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1, justifyContent: "flex-end", gridColumn: "1 / -1", width: "100%", }}>
+            <Stack direction={{ xs: "column", sm: "row", }} spacing={1} sx={{ width: "100%", justifyContent: "flex-end", }}>
               <Button
                 variant="outlined"
                 startIcon={
-                  loading ? <CircularProgress size={16} /> : <SearchOutlinedIcon />
+                  loading
+                    ? ( <CircularProgress size={16} /> )
+                    : ( <SearchOutlinedIcon /> )
                 }
                 onClick={handleSearch}
                 disabled={loading}
                 sx={{
-                  width: { xs: "100%", md: "auto" },
+                  flex: 1,
                   height: 40,
                   borderColor: "#8B6A55",
                   color: "#4B2E1F",
@@ -691,7 +1382,8 @@ export function LoanPage() {
                   fontWeight: 600,
                   "&:hover": {
                     borderColor: "#4B2E1F",
-                    bgcolor: "rgba(75, 46, 31, 0.05)",
+                    bgcolor:
+                      "rgba(75, 46, 31, 0.05)",
                   },
                 }}
               >
@@ -699,11 +1391,13 @@ export function LoanPage() {
               </Button>
               <Button
                 variant="outlined"
-                startIcon={<CleaningServicesOutlinedIcon />}
+                startIcon={
+                  <CleaningServicesOutlinedIcon />
+                }
                 onClick={handleClean}
                 disabled={loading}
                 sx={{
-                  width: { xs: "100%", md: "auto" },
+                  flex: 1,
                   height: 40,
                   borderColor: "#8B6A55",
                   color: "#4B2E1F",
@@ -711,7 +1405,8 @@ export function LoanPage() {
                   fontWeight: 600,
                   "&:hover": {
                     borderColor: "#4B2E1F",
-                    bgcolor: "rgba(75, 46, 31, 0.05)",
+                    bgcolor:
+                      "rgba(75, 46, 31, 0.05)",
                   },
                 }}
               >
@@ -868,13 +1563,13 @@ export function LoanPage() {
               onPageChange={(_, newPage) => {
                 const nextPage = newPage + 1;
                 setPage(nextPage);
-                loadLoans(nextPage, pageSize, filters);
+                loadLoans(nextPage, pageSize, appliedFilters);
               }}
               onRowsPerPageChange={(event) => {
                 const nextPageSize = Number(event.target.value);
                 setPageSize(nextPageSize);
                 setPage(1);
-                loadLoans(1, nextPageSize, filters);
+                loadLoans(1, nextPageSize, appliedFilters);
               }}
             />
           </>
@@ -1356,7 +2051,7 @@ export function LoanPage() {
           {loanToEdit && (
             <Stack spacing={3} sx={{ mt: 1 }}>
               <TextField label="Concepto" value={loanToEdit.conceptName} disabled fullWidth size="small" />
-              <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)", }, gap: 1.5, }}>
+              <Stack sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)", }, gap: 1.5, }}>
                 <NumericFormat
                   customInput={TextField}
                   label="Valor préstamo"
@@ -1389,22 +2084,38 @@ export function LoanPage() {
                   }
                 />
                 <TextField
+                  select
+                  label="Plan de descuento"
+                  value={loanDeductionPlanIdEdit}
+                  required
+                  fullWidth
+                  size="small"
+                  disabled={ updatingLoan || loadingDeductionPlans }
+                  onChange={(event) =>
+                    handleLoanDeductionPlanChange(Number(event.target.value))
+                  }
+                >
+                  <MenuItem value={0} disabled>
+                    Seleccione
+                  </MenuItem>
+                  {allDeductionPlans.map((item) => (
+                    <MenuItem key={item.IdDeductionPlan} value={item.IdDeductionPlan}>
+                      {item.nameDeductionPlan}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
                   label="Fin descuento"
                   type="date"
                   value={loanEndDiscountDateEdit}
                   fullWidth
                   size="small"
-                  disabled={updatingLoan}
+                  disabled
                   slotProps={{
                     inputLabel: {
                       shrink: true,
                     },
                   }}
-                  onChange={(event) =>
-                    setLoanEndDiscountDateEdit(
-                      event.target.value
-                    )
-                  }
                 />
               </Stack>
               <Typography sx={{ color: "#4B2E1F", fontSize: 16, fontWeight: 700, }}>
@@ -1483,29 +2194,11 @@ export function LoanPage() {
                         value={item.commitmentDate}
                         fullWidth
                         size="small"
-                        disabled={updatingLoan}
+                        disabled
                         slotProps={{
                           inputLabel: {
                             shrink: true,
                           },
-                        }}
-                        onChange={(event) => {
-                          setPendingInstallmentsEdit(
-                            (previous) =>
-                              previous.map(
-                                (
-                                  current,
-                                  currentIndex
-                                ) =>
-                                  currentIndex === index
-                                    ? {
-                                        ...current,
-                                        commitmentDate:
-                                          event.target.value,
-                                      }
-                                    : current
-                              )
-                          );
                         }}
                       />
                     </Stack>
