@@ -76,6 +76,11 @@ const loanItems: MenuItem[] = [
     path: "/cuotas-prestamos/logs",
     icon: <ManageSearchOutlinedIcon />,
   },
+  {
+    label: "Carga inicial",
+    path: "/cuotas-prestamos/importar",
+    icon: <UploadFileOutlinedIcon />,
+  },
 ];
 
 const integrationItems: MenuItem[] = [
