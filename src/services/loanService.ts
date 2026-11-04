@@ -2,6 +2,7 @@ import type { LoanQuery, Loan, LoanReportQuery, LoanReport,  LoanCreate, LoanUpd
 import type { LoanReconciliationResult } from "../models/LoanReconciliation";
 import type { LoanExport, LoanExportQuery, } from "../models/LoanExport";
 import type { PaginatedResult } from "../components/common/Pagination";
+import type { LoanImportResult } from "../models/LoanImport";
 import type { LoanScheduled } from "../models/LoanScheduled";
 import type { ApiResponse } from "../models/ApiResponse";
 import { loansApiClient } from "./apiClient";
@@ -81,6 +82,13 @@ export const loanService = {
 
   async processScheduled(): Promise<ApiResponse<LoanScheduled>> {
     const response = await loansApiClient.post<ApiResponse<LoanScheduled>>("/loans/loan/scheduled");
+    return response.data;
+  },
+
+  async importFromExcel(file: File): Promise<ApiResponse<LoanImportResult>> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await loansApiClient.post<ApiResponse<LoanImportResult>>("/loans/loan/import", formData);
     return response.data;
   },
 };
